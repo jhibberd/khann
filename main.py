@@ -1,8 +1,16 @@
 import math
 import random
 
+# TODO Instead of expressing the network as a collection of objects express
+# the network as a collection of weights and values/activations(?)
 
-LEARNING_RATE = 0.005
+# TODO Perhaps use numpy to speed things up
+
+# TODO Document, commit and copy to try and solve Kaggle problem.
+
+# TODO Handle networks with an arbitrary number of hidden nodes.
+
+LEARNING_RATE = 0.05
 
 class Node(object):
     """The most general expression of a node. It simply contains an output 
@@ -30,24 +38,6 @@ class HiddenOrOutputNode(Node):
         self._parent_nodes = parent_nodes
         self._init_weights()
 
-    def calc_output(self):
-        """Calculate the node's output given its weights and the output values
-        from parent nodes.
-        """
-
-        # Collect the outputs from the parent nodes as a vector.
-        outputs = map(lambda n: n.output, self._parent_nodes)
-
-        # Get the sum of the outputs multiplied by the weights.
-        o = 0
-        for w,x in zip(self.weights, outputs):
-            o += w * x
-
-        # Pass the output through the sigmoid function.
-        o = self._sigmoid(o)
-
-        self.output = o
-
     def _init_weights(self):
         """Initialise weights to random floating point values 0 < n < 1."""
         self.weights = []
@@ -70,21 +60,54 @@ class HiddenOrOutputNode(Node):
 
 class OutputNode(HiddenOrOutputNode):
     
-    # p.98
     def calc_error_term(self, target_output):
         error = float(target_output) - self.output
-        self.error_term = self.output * (1 - self.output) * error # This is just the delta
+        self.error_term = self.output * (1 - self.output) * error
+
+    def calc_output(self):
+        """Calculate the node's output given its weights and the output values
+        from parent nodes.
+        """
+
+        # Collect the outputs from the parent nodes as a vector.
+        outputs = map(lambda n: n.output, self._parent_nodes)
+
+        # Get the sum of the outputs multiplied by the weights.
+        o = 0.0
+        for w,x in zip(self.weights, outputs):
+            o += w * x
+
+        # Pass the output through the sigmoid function.
+        o = self._sigmoid(o)
+
+        self.output = o
 
 
 class HiddenNode(HiddenOrOutputNode):
 
     def calc_error_term(self, weights_from_output_nodes, output_nodes):
         error = 0.0
-        # TODO Wrong! Weights should be those between output_nodes and this 
-        # node, not between this node and its parents.
         for w,on in zip(weights_from_output_nodes, output_nodes):
             error += w * on.error_term
-        self.error_term = self.output * (1 - self.output) * error # This is just the delta
+        self.error_term = self.output * (1 - self.output) * error
+
+    def calc_output(self):
+        """Calculate the node's output given its weights and the output values
+        from parent nodes.
+        """
+
+        # Collect the outputs from the parent nodes as a vector.
+        outputs = map(lambda n: n.output, self._parent_nodes)
+
+        # Get the sum of the outputs multiplied by the weights.
+        o = 0.0
+        for w,x in zip(self.weights, outputs):
+            o += w * x
+
+        # Pass the output through the sigmoid function.
+        o = self._sigmoid(o)
+
+        self.output = o
 
 
 class Network(object):
@@ -117,14 +140,14 @@ class Network(object):
 
         self._hidden_or_output_nodes = self._hidden_nodes + self._output_nodes
 
-    def evaluate(self, vector, target_outputs):
+    def evaluate(self, vector):
         """Given an input vector, generate the corresponding output vector
         the current weights.
         """
-       
+  
         # Load the vector into the input nodes.
         for node, x in zip(self._input_nodes, vector):
-            node.output = x
+            node.output = float(x)
 
         # Starting with the first hidden node and moved "forward" through the
         # network, request that each node calculate its output (given its
@@ -133,13 +156,9 @@ class Network(object):
 
         # Collect the output values of all output nodes as a vector.
         outputs = map(lambda n: n.output, self._output_nodes)
-
-        # TODO Perhaps calculate total error here and only continue if total
-        # error is above a threshold (or hasn't yet converged).
-        e = error(outputs, target_outputs)
-        print "%s = %s -> %s (er %s)" % (vector, target_outputs, outputs, e)
-        if e == 0:
-            raise Exception("Converged")
+        return outputs
+    
+    def adjust(self, target_outputs):
 
         # Calculate the error term for all output nodes.
         for t, n in zip(target_outputs, self._output_nodes):
@@ -158,11 +177,11 @@ class Network(object):
             n.update_weights()
 
 
-def error(actual_output, target_outout):
-    e = 0
-    for actual, target in zip(actual_output, target_output):
-        e += math.pow(target - actual, 2)
-    return e / 2
+    def get_error(self, actual_output, target_output):
+        e = 0
+        for t,o in zip(target_output, actual_output):
+            e += (t-o)**2
+        return e * 0.5
 
 # Attempt to learn XOR function
 # TODO Then try binary addition
@@ -174,13 +193,15 @@ training_set = [
     ]
 nw = Network(num_input_nodes=2, num_hidden_nodes=2, num_output_nodes=1)
 
-import time
-from itertools import cycle
+for i in range(100000):
+    error = 0.0
+    for input_vector, target_output in training_set:
+        actual_output = nw.evaluate(input_vector)
+        error += nw.get_error(actual_output, target_output)
+        nw.adjust(target_output)
+    if i % 100 == 0:
+        print "Error %s" % error
 
-for input_vector, target_output in cycle(training_set):
-    nw.evaluate(input_vector, target_output)
-    #time.sleep(.5)
-
-# TODO After training the weights, run the input data over the ANN again and 
-# check classifications are as expected.
+for iv, _ in training_set:
+    print "%s -> %s" % (iv, nw.evaluate(iv))
 
