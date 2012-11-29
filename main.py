@@ -2,12 +2,15 @@ import math
 import random
 
 
+LEARNING_RATE = 0.005
+
 class Node(object):
     """The most general expression of a node. It simply contains an output 
     value. Input nodes are of this type.
     """
 
-    output = None
+    def __init__(self):
+        self.output = None
 
 
 class HiddenOrOutputNode(Node):
@@ -22,6 +25,8 @@ class HiddenOrOutputNode(Node):
         Args:
             parent_nodes: ([Node]) List of parent nodes.
         """
+        super(HiddenOrOutputNode, self).__init__()
+        self.error_term = None
         self._parent_nodes = parent_nodes
         self._init_weights()
 
@@ -57,32 +62,29 @@ class HiddenOrOutputNode(Node):
         """
         return 1 / (1 + math.exp(-x))
 
+    def update_weights(self):
+        for i in range(len(self.weights)):
+            delta = LEARNING_RATE * self.error_term * self._parent_nodes[i].output
+            self.weights[i] += delta
 
-    # TODO(jhibberd) For output node only
-    def calc_error_term():
-        """
-        Compare target with actual output
-        Then apply sigmoid derivative.
-        """
-        pass
 
-    # TODO(jhibberd) For hidden node only
-    def calc_error_term():
-        """
-        Look at *error term* for all downstream nodes
-        TODO Each node needs connections upstream and downstream
-        Weight each error term by weight of that node (which belongs to output
-        node so that could be tricky)
-        Then apply sigmoid derivative.
-        """
-        pass
+class OutputNode(HiddenOrOutputNode):
+    
+    # p.98
+    def calc_error_term(self, target_output):
+        error = float(target_output) - self.output
+        self.error_term = self.output * (1 - self.output) * error # This is just the delta
 
-    def adjust_weights():
-        """
-        For each node:
-            error_term * learning_rate * upstream value for that weight?
-        """
-        pass
+
+class HiddenNode(HiddenOrOutputNode):
+
+    def calc_error_term(self, weights_from_output_nodes, output_nodes):
+        error = 0.0
+        # TODO Wrong! Weights should be those between output_nodes and this 
+        # node, not between this node and its parents.
+        for w,on in zip(weights_from_output_nodes, output_nodes):
+            error += w * on.error_term
+        self.error_term = self.output * (1 - self.output) * error # This is just the delta
 
 
 class Network(object):
@@ -95,6 +97,7 @@ class Network(object):
         # Need pointers to the following sets of nodes.
         self._input_nodes = []
         self._output_nodes = []
+        self._hidden_nodes = []
         self._hidden_or_output_nodes = []
 
         # Construct input nodes.
@@ -103,19 +106,18 @@ class Network(object):
             self._input_nodes.append(n)
 
         # Construct hidden nodes.
-        hidden_nodes = []
         for i in range(num_hidden_nodes):
-            n = HiddenOrOutputNode(self._input_nodes)
-            hidden_nodes.append(n)
+            n = HiddenNode(self._input_nodes)
+            self._hidden_nodes.append(n)
     
         # Construct output nodes.
         for i in range(num_output_nodes):
-            n = HiddenOrOutputNode(hidden_nodes)
+            n = OutputNode(self._hidden_nodes)
             self._output_nodes.append(n)
 
-        self._hidden_or_output_nodes = hidden_nodes + self._output_nodes
+        self._hidden_or_output_nodes = self._hidden_nodes + self._output_nodes
 
-    def evaluate(self, vector):
+    def evaluate(self, vector, target_outputs):
         """Given an input vector, generate the corresponding output vector
         the current weights.
         """
@@ -127,12 +129,33 @@ class Network(object):
         # Starting with the first hidden node and moved "forward" through the
         # network, request that each node calculate its output (given its
         # current weights).
-        map(HiddenOrOutputNode.calc_output, self._hidden_or_output_nodes)
+        map(lambda n: n.calc_output(), self._hidden_or_output_nodes)
 
         # Collect the output values of all output nodes as a vector.
         outputs = map(lambda n: n.output, self._output_nodes)
 
-        return outputs
+        # TODO Perhaps calculate total error here and only continue if total
+        # error is above a threshold (or hasn't yet converged).
+        e = error(outputs, target_outputs)
+        print "%s = %s -> %s (er %s)" % (vector, target_outputs, outputs, e)
+        if e == 0:
+            raise Exception("Converged")
+
+        # Calculate the error term for all output nodes.
+        for t, n in zip(target_outputs, self._output_nodes):
+            n.calc_error_term(t)
+
+        # Calculate the error term for all hidden nodes.
+        for i,n in enumerate(self._hidden_nodes):
+
+            # Get output node weights pointing to that hidden node.
+            weights = map(lambda n: n.weights[i], self._output_nodes)
+
+            n.calc_error_term(weights, self._output_nodes)
+
+        # Update all weights accordingly.
+        for n in self._hidden_or_output_nodes:
+            n.update_weights()
 
 
 def error(actual_output, target_outout):
@@ -141,11 +164,23 @@ def error(actual_output, target_outout):
         e += math.pow(target - actual, 2)
     return e / 2
 
-training_set = ([3, 7, 12], [1, 0])
-nw = Network(num_input_nodes=3, num_hidden_nodes=4, num_output_nodes=2)
+# Attempt to learn XOR function
+# TODO Then try binary addition
+training_set = [
+    ([0, 0], [0]),
+    ([1, 0], [1]),
+    ([0, 1], [1]),
+    ([1, 1], [0]),
+    ]
+nw = Network(num_input_nodes=2, num_hidden_nodes=2, num_output_nodes=1)
 
-input_vector, target_output = training_set
-actual_output = nw.evaluate(input_vector)
-e = error(actual_output, target_output)
-print e
+import time
+from itertools import cycle
+
+for input_vector, target_output in cycle(training_set):
+    nw.evaluate(input_vector, target_output)
+    #time.sleep(.5)
+
+# TODO After training the weights, run the input data over the ANN again and 
+# check classifications are as expected.
 
