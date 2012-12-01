@@ -1,4 +1,5 @@
 import math
+import numpy as np
 import random
 
 # TODO Instead of expressing the network as a collection of objects express
@@ -12,104 +13,20 @@ import random
 
 LEARNING_RATE = 0.05
 
-class Node(object):
-    """The most general expression of a node. It simply contains an output 
-    value. Input nodes are of this type.
-    """
+
+class HiddenNode(object):
 
     def __init__(self):
-        self.output = None
-
-
-class HiddenOrOutputNode(Node):
-    """A specialised type of node that contains weights/connections to parent
-    nodes and the ability to calculate it's output. Hidden and output nodes
-    are of this type.
-    """
-
-    def __init__(self, parent_nodes):
-        """Define parent nodes that this node connects to (upstream).
-
-        Args:
-            parent_nodes: ([Node]) List of parent nodes.
-        """
-        super(HiddenOrOutputNode, self).__init__()
         self.error_term = None
-        self._parent_nodes = parent_nodes
-        self._init_weights()
 
-    def _init_weights(self):
-        """Initialise weights to random floating point values 0 < n < 1."""
-        self.weights = []
-        for _ in self._parent_nodes:
-            r = random.random()
-            self.weights.append(r)
-
-    @staticmethod
-    def _sigmoid(x):
-        """Sigmoid squashing function to allow for solution complexity to go
-        beyond linear functions.
-        """
-        return 1 / (1 + math.exp(-x))
-
-    def update_weights(self):
-        for i in range(len(self.weights)):
-            delta = LEARNING_RATE * self.error_term * self._parent_nodes[i].output
-            self.weights[i] += delta
-
-
-class OutputNode(HiddenOrOutputNode):
-    
-    def calc_error_term(self, target_output):
-        error = float(target_output) - self.output
-        self.error_term = self.output * (1 - self.output) * error
-
-    def calc_output(self):
-        """Calculate the node's output given its weights and the output values
-        from parent nodes.
-        """
-
-        # Collect the outputs from the parent nodes as a vector.
-        outputs = map(lambda n: n.output, self._parent_nodes)
-
-        # Get the sum of the outputs multiplied by the weights.
-        o = 0.0
-        for w,x in zip(self.weights, outputs):
-            o += w * x
-
-        # Pass the output through the sigmoid function.
-        o = self._sigmoid(o)
-
-        self.output = o
-
-
-class HiddenNode(HiddenOrOutputNode):
-
-    def calc_error_term(self, weights_from_output_nodes, output_nodes):
+    def calc_error_term(self, output, weights_from_output_nodes, output_node_error_terms):
         error = 0.0
-        for w,on in zip(weights_from_output_nodes, output_nodes):
-            error += w * on.error_term
-        self.error_term = self.output * (1 - self.output) * error
+        for w,oe in zip(weights_from_output_nodes, output_node_error_terms):
+            error += w * oe
+        self.error_term = output * (1 - output) * error
 
-    def calc_output(self):
-        """Calculate the node's output given its weights and the output values
-        from parent nodes.
-        """
-
-        # Collect the outputs from the parent nodes as a vector.
-        outputs = map(lambda n: n.output, self._parent_nodes)
-
-        # Get the sum of the outputs multiplied by the weights.
-        o = 0.0
-        for w,x in zip(self.weights, outputs):
-            o += w * x
-
-        # Pass the output through the sigmoid function.
-        o = self._sigmoid(o)
-
-        self.output = o
-
-
+# TODO Reference book and use correct terminology
+# TODO Rename to ANN
 class Network(object):
 
     def __init__(self, num_input_nodes, num_hidden_nodes, num_output_nodes):
@@ -117,28 +34,42 @@ class Network(object):
         output nodes.
         """
 
-        # Need pointers to the following sets of nodes.
-        self._input_nodes = []
-        self._output_nodes = []
-        self._hidden_nodes = []
-        self._hidden_or_output_nodes = []
+        # Number of nodes in input, hidden and output layers.
+        topology = [2, 2, 1] 
 
-        # Construct input nodes.
-        for i in range(num_input_nodes):
-            n = Node()
-            self._input_nodes.append(n)
+        # TODO rename to self._o
+        # Define arrays to hold output values for each node.
+        self._x = map(lambda n: np.zeros(n), topology)
+
+        # Define arrays to hold error terms.
+        self._e = map(lambda n: np.zeros(n), topology)
+
+        # Initialise weights in generalised algorithm that accounts for 
+        # arbitrary network depth.
+        self._w = []
+        for layer_index, layer_size in enumerate(topology):
+            layer = []
+            for node_index in range(layer_size):
+                if layer_index == 0:
+                    node = []
+                else:
+                    # A weight for each node in the preceding layer
+                    node = []
+                    for _ in range(topology[layer_index-1]):
+                        node.append(random.random())
+                layer.append(node)
+            self._w.append(layer)
+        print self._w
+
+        # Need pointers to the following sets of nodes.
+        self._hidden_nodes = []
 
         # Construct hidden nodes.
         for i in range(num_hidden_nodes):
-            n = HiddenNode(self._input_nodes)
+            n = HiddenNode()
             self._hidden_nodes.append(n)
     
-        # Construct output nodes.
-        for i in range(num_output_nodes):
-            n = OutputNode(self._hidden_nodes)
-            self._output_nodes.append(n)
-
-        self._hidden_or_output_nodes = self._hidden_nodes + self._output_nodes
+        self._topology = topology
 
     def evaluate(self, vector):
         """Given an input vector, generate the corresponding output vector
@@ -146,42 +77,65 @@ class Network(object):
         """
   
         # Load the vector into the input nodes.
-        for node, x in zip(self._input_nodes, vector):
-            node.output = float(x)
+        self._x[0] = np.array(vector)
 
         # Starting with the first hidden node and moved "forward" through the
         # network, request that each node calculate its output (given its
         # current weights).
-        map(lambda n: n.calc_output(), self._hidden_or_output_nodes)
+        # p.97
 
-        # Collect the output values of all output nodes as a vector.
-        outputs = map(lambda n: n.output, self._output_nodes)
-        return outputs
+        for l in range(1, len(self._topology)):
+            for i in range(self._topology[l]):
+                o = np.dot(self._w[l][i], self._x[l-1])
+                self._x[l][i] = sigmoid(o)
+
+        # Network output vector is outputs from bottom layer.
+        return self._x[-1]
     
     def adjust(self, target_outputs):
 
+        # TODO Calculating error terms needs to happen in reverse.
         # Calculate the error term for all output nodes.
-        for t, n in zip(target_outputs, self._output_nodes):
-            n.calc_error_term(t)
+        # p.98
+        for i,t in enumerate(target_outputs):
+            o = self._x[2][i]
+            self._e[2][i] = o * (1-o) * (t-o)
 
         # Calculate the error term for all hidden nodes.
         for i,n in enumerate(self._hidden_nodes):
 
             # Get output node weights pointing to that hidden node.
-            weights = map(lambda n: n.weights[i], self._output_nodes)
+            weights = []
+            for j in range(self._topology[2]):
+                w = self._w[2][j][i]
+                weights.append(w)
 
-            n.calc_error_term(weights, self._output_nodes)
+            n.calc_error_term(self._x[1][i], weights, self._e[2])
 
         # Update all weights accordingly.
-        for n in self._hidden_or_output_nodes:
-            n.update_weights()
 
+        for i,n in enumerate(self._hidden_nodes):
+            for j in range(self._topology[0]):
+                delta = LEARNING_RATE * n.error_term * self._x[0][j]
+                self._w[1][i][j] += delta
+
+        for i in range(self._topology[2]):
+            for j in range(self._topology[1]):
+                delta = LEARNING_RATE * self._e[2][i] * self._x[1][j]
+                self._w[2][i][j] += delta
 
     def get_error(self, actual_output, target_output):
         e = 0
         for t,o in zip(target_output, actual_output):
             e += (t-o)**2
         return e * 0.5
+
+def sigmoid(x):
+    """Sigmoid squashing function to allow for solution complexity to go
+    beyond linear functions.
+    """
+    return 1 / (1 + math.exp(-x))
+
 
 # Attempt to learn XOR function
 # TODO Then try binary addition
