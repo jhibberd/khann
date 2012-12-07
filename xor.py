@@ -44,7 +44,7 @@ class ANN(object):
             layer = map(weights_for_node, range(topology[l]))
             self._w.append(layer)
         self._w.insert(0, None) # The input layer doesn't have weights.
-        
+
         self._topology = topology
         self._learning_rate = learning_rate
 

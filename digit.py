@@ -1,11 +1,8 @@
-"""Basic implementation of an artificial neural network in python using a
-sigmoid activation function and the backpropagation learning algorithm.
+"""Modification of xor.py to address Kaggle Digit Recogniser problem:
+http://www.kaggle.com/c/digit-recognizer
 
-The network attemps to learn the behaviour of an XOR gate.
-
-The theory used for the implementation is from:
-"Machine Learning" by Tom M. Mitchell (ISBN: 0-07-115467-1)
-
+Given the size of the neural network and training set this python
+implementation was too slow to be useful.
 """
 import math
 import numpy as np
@@ -233,15 +230,8 @@ if __name__ == "__main__":
     # Iteratively learn from the training set until an acceptable error value 
     # is obtained.
     e = float('inf')
-    i = 0
     with open("digit-train.csv") as f:
         while e > .2:
             e = ann.train(f)
-            if i % 100 == 0:
-                print "Error %s" % e
-            i += 1
-
-    # Display learnt XOR classification.
-    for x, _ in training_set:
-        print "%s -> %s" % (x, ann.evaluate(x))
+            print "Error %s" % e
 
