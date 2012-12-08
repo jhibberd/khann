@@ -1,3 +1,6 @@
 *.pyc
 *.swp
+*.o
+*.hi
+XOR
 digit-train.csv

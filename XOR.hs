@@ -62,33 +62,30 @@ dot xs ys = sum (zipWith (*) xs ys)
 evaluate :: Network -> [Float] -> Network
 evaluate (Network os es ws) xs = Network os'' es ws
     where os'' = foldl f [xs] [1..length topology -1]
-          f os' l = os' ++ [[output os' l i | i <- [0..(topology !! l)-1]]]
+          f os' l = os' ++ [[output os' l i | i <- range (topology !! l)]]
           output os' l i' = sigmoid $ dot nodeWeights upstreamOutputs
               where nodeWeights = (ws !! l) !! i'
                     upstreamOutputs = os' !! (l-1)
-
 
 errorTerms :: Network 
            -> [Float] -- Target outputs
            -> Network
 errorTerms n@(Network os es ws) ts = Network os ([[]] ++ otherEs) ws
     where otherEs = foldl f [(outputET n ts)] [start, (start-1)..1]
-              where f es' l = [[g es' l i | i <- [0..(topology !! l)-1]]] ++ es'
+              where f es' l = [[g es' l i | i <- range (topology !! l)]] ++ es'
                     start = length topology-2
-                    ws' l i  = [ws !!!! (l+1, j, i) | j <- [0..(topology !! (l+1))-1]]
+                    ws' l i  = [ws !!!! (l+1, j, i) | j <- range (topology !! (l+1))]
                     g es' l i = let e = dot (ws' l i) (head es')
                                     o = os !!! (l, i)
                                 in o * (1-o) * e
 
--- | Return error terms for the output later of a network.
+-- | Return error terms for the output layer of a network.
 outputET :: Network 
          -> [Float] -- Target outputs
          -> [Float]
 outputET (Network os es ws) ts = map e (enum ts)
     where e (i, t) = let o = (last os) !! i
                      in o * (1-o) * (t-o)
-
---hiddenET :: Network ->
 
 -- | Augment a list with the index position of each element.
 enum :: [a] -> [(Int, a)]
@@ -100,54 +97,45 @@ xs !!! (i1, i2) = (xs !! i1) !! i2
 (!!!!) :: [[[a]]] -> (Int, Int, Int) -> a
 xs !!!! (i1, i2, i3) = ((xs !! i1) !! i2) !! i3
 
+-- | Update the weights in a network given the error terms and outputs.
+updateWeights :: Network -> Network
+updateWeights (Network os es ws) = Network os es ws'
+    where ws' = [] : [f1 l | l <- [1..length topology -1]]
+          f1 l = [f2 l i | i <- range (topology !! l)]
+          f2 l i = [f3 l i j | j <- range (topology !! (l-1))]
+          f3 l i j = let delta = learningRate * es !!! (l, i) * os !!! (l-1, j)
+                     in ws !!!! (l, i, j) + delta
+
+-- | List of index positions up to to (but excluding) n.
+range :: Int -> [Int]
+range n = [0..(n-1)]
+
+-- | Other ---------------------------------------------------------------------
+
+-- | Return the error value between the actual and target output for a single
+--   training example.
+errorVal :: [Float]    -- Actual output
+         -> [Float]    -- Target outout
+         -> Float      -- Error
+errorVal os ts = (sum $ zipWith (\t o -> (t-o)**2) ts os) * 0.5
+
+-- | Train the network using a complete training set
+train :: Network                -- Initial network
+      -> [([Float], [Float])]   -- Training set
+      -> (Network, Float)       -- trained network and error
+train net tset = foldl f (net, 0) tset
+    where f (net', e) (x, t) = let net1 = evaluate net' x
+                                   net2 = errorTerms net1 t
+                                   net3 = updateWeights net2
+                                   o = output net3
+                                   e' = errorVal o t
+                               in (net3, e+e')
+
+-- | The output layer of a network.
+output :: Network -> [Float]
+output (Network os _ _) = last os
+
 {-
-
-    def _learn(self, target_outputs):
-        """Optionally called after 'evaluate' (once the outputs for an input
-        vector have been set). The weights are adjusted to better produce
-        the 'target_outputs' on classifying the same input vector again.
-
-        Args:
-            target_outputs: ([float]) Target outputs.
-
-        See: p. 98 (T4.5)
-        """
-
-        # Calculate the error terms for the output nodes by comparing the 
-        # target output with the actual output.
-        for i,t in enumerate(target_outputs):
-            o = self._o[-1][i]
-            self._e[-1][i] = o * (1-o) * (t-o)
-
-        # Calculate the error terms for all hidden nodes by moving backwards
-        # through the network (starting with the layer just before the output
-        # layer) and using the dot product of the weights from the next level
-        # that connect upstream to the node and the error terms from the next 
-        # level.
-        for l in range(len(self._topology)-2, 0, -1):
-            for i in range(self._topology[l]):
-                w = map(
-                    lambda j: self._w[l+1][j][i], range(self._topology[l+1]))
-                e = np.dot(w, self._e[l+1])
-                o = self._o[l][i]
-                self._e[l][i] = o * (1-o) * e
-
-        # Update weights by moving forward through the network (starting with
-        # the second layer), calculating the weight delta for a given node by
-        # multiplying the weight between the node and each upstream node by the
-        # current output value from each upstream node (and the learning rate).
-        for l in range(1, len(self._topology)):
-            for i in range(self._topology[l]):
-                for j in range(self._topology[l-1]):
-                    delta = \
-                        self._learning_rate * self._e[l][i] * self._o[l-1][j]
-                    self._w[l][i][j] += delta
-
--}
--- TODO Implement "learn" as two functions: one to update error terms; another
--- to update the weights.
-
-
 main = do
     net <- initNetwork
     print net
@@ -155,5 +143,30 @@ main = do
     print net1
     let net2 = errorTerms net1 [0]
     print net2
+    let net3 = updateWeights net2
+    print net3
+    return ()
+-}
+
+main = do
+    net <- initNetwork
+    net' <- iteration net 100000
+    test net'
     return ()
 
+threshold = 0.13
+
+iteration :: Network -> Float -> IO Network
+iteration net e = do
+    let (net', e') = train net trainingSet
+    print e'
+    if e' < threshold 
+        then return net' 
+        else iteration net' e'
+
+test :: Network -> IO ()
+test net = do
+    let output = map f trainingSet
+    mapM_ putStrLn output
+    where f (x, t) = let o = output $ evaluate net x
+                     in (show x ++ "=" ++ show t ++ " => " ++ show o)
