@@ -79,7 +79,7 @@ setOutputErrorTerms ts (Network os es ws) = es'
     where es' = es // [((t, i), calc (os!(t, i)) t') | (i, t') <- zip [0..] ts] 
           calc o t = o * (1-o) * (t-o)
 
-learningRate = 0.5
+learningRate = 0.05
 
 setWeights :: Network -> Network
 setWeights (Network os es ws) = Network os es ws'
