@@ -85,7 +85,7 @@ setWeights :: Network -> Network
 setWeights (Network os es ws) = Network os es ws'
     where ws' = ws // [((l, i, j), f l i j) | l <- range (1, t), i <- range (0, m), j <- range (0, m)]
           f l i j = let delta = learningRate * es!(l, i) * os!(l-1, j)
-                    in ws!(l, i, j) + delta
+                    in (ws!(l, i, j)) + delta
 
 
 errorVal :: [Float] -- Actual output
@@ -116,7 +116,7 @@ iteration n = do
     let (n'@(Network _ _ c'), e) = train n
     --putStrLn (show n')
     putStrLn (show e)
-    if e < 0.3
+    if e < 0.16
            then return n'
            else iteration n'
 
