@@ -2,5 +2,9 @@
 *.swp
 *.o
 *.hi
+*.aux
+*.prof
+*.ps
+*.hp
 XOR
 digit-train.csv

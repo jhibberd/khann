@@ -79,12 +79,23 @@ setOutputErrorTerms ts (Network os es ws) = es'
     where es' = es // [((t, i), calc (os!(t, i)) t') | (i, t') <- zip [0..] ts] 
           calc o t = o * (1-o) * (t-o)
 
-learningRate = 0.05
+learningRate :: Float -- Error
+             -> Float
+learningRate e 
+    | e > 0.4 =     0.05
+    | e > 0.3 =     0.02
+    | e > 0.35 =    0.005
+    | e > 0.3 =     0.001
+    | e > 0.2 =     0.0005
+    | e > 0.15 =    0.00005
+    | otherwise =   0.00001
 
-setWeights :: Network -> Network
-setWeights (Network os es ws) = Network os es ws'
+setWeights :: Float -- Learning rate
+           -> Network 
+           -> Network
+setWeights lr (Network os es ws) = Network os es ws'
     where ws' = ws // [((l, i, j), f l i j) | l <- range (1, t), i <- range (0, m), j <- range (0, m)]
-          f l i j = let delta = learningRate * es!(l, i) * os!(l-1, j)
+          f l i j = let delta = lr * es!(l, i) * os!(l-1, j)
                     in (ws!(l, i, j)) + delta
 
 
@@ -99,10 +110,11 @@ output (Network os _ _) = [os!(t, 0)]
 
 train :: Network -> (Network, Float) -- Includes error
 train n = foldl' f (n, 0) trainingSet
-    where f (n, e) (x, t) = let n' = setWeights . setErrorTerms t $ setOutputs x n
+    where f (n, e) (x, t) = let n' = setErrorTerms t $ setOutputs x n
                                 o = output n'
                                 e' = errorVal o t
-                            in (n', e+e')
+                                n'' = setWeights (learningRate e') n'
+                            in (n'', e+e')
 
 main = do
     n <- initNetwork
@@ -115,8 +127,8 @@ iteration :: Network -> IO Network
 iteration n = do
     let (n'@(Network _ _ c'), e) = train n
     --putStrLn (show n')
-    putStrLn (show e)
-    if e < 0.16
+    putStrLn (show e ++ "\t" ++ show (learningRate e)) 
+    if e < 0.15
            then return n'
            else iteration n'
 
