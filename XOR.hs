@@ -3,10 +3,10 @@ import Data.List
 import Debug.Trace
 import System.Random
 
-type Outputs = Array (Int, Int) Float
-type ErrorTerms = Array (Int, Int) Float
-type Weights = Array (Int, Int, Int) Float
-data Network = Network Outputs ErrorTerms Weights
+type Outputs =      Array (Int, Int) Float
+type ErrorTerms =   Array (Int, Int) Float
+type Weights =      Array (Int, Int, Int) Float
+data Network =      Network Outputs ErrorTerms Weights
 
 instance Show Network where
     show (Network a b c) = "\n" ++ show a ++ "\n" ++ show b ++ "\n" ++ show c
@@ -104,9 +104,8 @@ errorVal :: [Float] -- Actual output
          -> Float -- Error
 errorVal os ts = (sum $ zipWith (\t o -> (t-o)**2) ts os) * 0.5
 
--- TODO Not generic
 output :: Network -> [Float]
-output (Network os _ _) = [os!(t, 0)]
+output (Network os _ _) = [os!(t, i) | i <- range (0, (topology !! t)-1)]
 
 train :: Network -> (Network, Float) -- Includes error
 train n = foldl' f (n, 0) trainingSet
@@ -118,7 +117,7 @@ train n = foldl' f (n, 0) trainingSet
 
 main = do
     n <- initNetwork
-    putStrLn (show n)
+    putStrLn (show n) -- Without this a PDF mem prof can't be produced!?
     n' <- iteration n
     test n'
     return ()
@@ -126,7 +125,6 @@ main = do
 iteration :: Network -> IO Network
 iteration n = do
     let (n'@(Network _ _ c'), e) = train n
-    --putStrLn (show n')
     putStrLn (show e ++ "\t" ++ show (learningRate e)) 
     if e < 0.15
            then return n'
