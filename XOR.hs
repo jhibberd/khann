@@ -8,20 +8,29 @@ type ErrorTerms =   Array (Int, Int) Float
 type Weights =      Array (Int, Int, Int) Float
 data Network =      Network Outputs ErrorTerms Weights
 
-instance Show Network where
-    show (Network a b c) = "\n" ++ show a ++ "\n" ++ show b ++ "\n" ++ show c
+--instance Show Network where
+--    show (Network a b c) = "\n" ++ show a ++ "\n" ++ show b ++ "\n" ++ show c
 
 initNetwork :: IO Network
 initNetwork = do
-    w' <- w
-    return (Network os es (ws' w'))
-    where w = sequence $ map (\_ -> randomRIO (-0.5, 0.5)) (range boundsWeights)
-          os = emptyArray2
-          es = emptyArray2
-          ws' ws = array boundsWeights $ zip (range boundsWeights) ws
+    rs' <- rs
+    return (Network os es (ws rs'))
+    where rs = sequence $ map (\_ -> randomRIO (-0.5, 0.5)) rangeWeights
+          os = listArray boundsOutputs [0,0..] 
+          es = listArray boundsErrorTerms [0,0..]
+          ws rs = listArray boundsWeights [0,0..] // zip rangeWeights rs
 
-emptyArray2 = array boundsOutputs [(i, 0) | i <- range boundsOutputs]
-emptyArray3 = array boundsWeights [(i, 0) | i <- range boundsWeights]
+-- | Return complete range for all used weight elements.
+rangeWeights :: [(Int, Int, Int)]
+rangeWeights = concat . map rangeWeights' $ range (1, t)
+
+-- | Return range for all used weight elements in a layer.
+rangeWeights' :: Int -> [(Int, Int, Int)]
+rangeWeights' l = concat . map (rangeWeights'' l) $ range (0, (topology !! l)-1)
+
+-- | Return range for all used weight elements for a node in a layer.
+rangeWeights'' :: Int -> Int -> [(Int, Int, Int)]
+rangeWeights'' l i = [(l, i, j) | j <- range (0, (topology !! (l-1))-1)]
 
 t = (length topology) -1
 m = (maximum topology) -1
@@ -36,7 +45,6 @@ trainingSet = [
               ([0, 1], [1]),
               ([1, 1], [0])
               ]
-
 
 -- TODO At some point move from Float to Double.
 -- | The Sigmoid function.
@@ -81,14 +89,7 @@ setOutputErrorTerms ts (Network os es ws) = es'
 
 learningRate :: Float -- Error
              -> Float
-learningRate e 
-    | e > 0.4 =     0.05
-    | e > 0.3 =     0.02
-    | e > 0.35 =    0.005
-    | e > 0.3 =     0.001
-    | e > 0.2 =     0.0005
-    | e > 0.15 =    0.00005
-    | otherwise =   0.00001
+learningRate e = e / (2 ** e) -- TODO Need to be more quadratic
 
 setWeights :: Float -- Learning rate
            -> Network 
@@ -117,7 +118,6 @@ train n = foldl' f (n, 0) trainingSet
 
 main = do
     n <- initNetwork
-    putStrLn (show n) -- Without this a PDF mem prof can't be produced!?
     n' <- iteration n
     test n'
     return ()
