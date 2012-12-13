@@ -26,11 +26,15 @@ rangeWeights = concat . map rangeWeights' $ range (1, t)
 
 -- | Return range for all used weight elements in a layer.
 rangeWeights' :: Int -> [(Int, Int, Int)]
-rangeWeights' l = concat . map (rangeWeights'' l) $ range (0, (topology !! l)-1)
+rangeWeights' l = concat . map (rangeWeights'' l) $ rangeLevel l
 
 -- | Return range for all used weight elements for a node in a layer.
 rangeWeights'' :: Int -> Int -> [(Int, Int, Int)]
-rangeWeights'' l i = [(l, i, j) | j <- range (0, (topology !! (l-1))-1)]
+rangeWeights'' l i = [(l, i, j) | j <- rangeLevel (l-1)]
+
+-- | Given the topology return the indices available at a level.
+rangeLevel :: Int -> [Int]
+rangeLevel l = range (0, (topology !! l)-1)
 
 t = (length topology) -1
 m = (maximum topology) -1
@@ -61,8 +65,7 @@ setOutputs :: [Float] -- Input vector
 setOutputs xs (Network os es ws) = Network os' es ws
     where os' =             foldl' layer input (range (1, t))
           input =           os // [((0, i), x) | (i, x) <- zip [0..] xs]
-          layer os l =      os // [((l, i), calc os l i) | 
-                                   i <- range (0, (topology !! l)-1)] 
+          layer os l =      os // [((l, i), calc os l i) | i <- rangeLevel l] 
           calc os l i =     sigmoid $ dot (weights l i) (upstream os l)
           weights l i =     [ws!(l, i, j) | j <- [0..m]]
           upstream os l =   [os!(l-1, j)  | j <- [0..m]]
@@ -76,8 +79,8 @@ setErrorTerms ts n@(Network os es ws) = Network os es' ws
           g es l i = let e = dot (weights (l+1) i) (errorTerms es (l+1))
                          o = os!(l, i)
                      in o * (1-o) * e
-          weights l i =     [ws!(l, i, j) | j <- [0..m]]
-          errorTerms es l = [es!(l, j) | j <- [0..m]]
+          weights l i =     [ws!(l, j, i) | j <- range (0, (topology !! l)-1)]
+          errorTerms es l = [es!(l, j) | j <- range (0, (topology !! l)-1)]
           output = setOutputErrorTerms ts n
 
 setOutputErrorTerms :: [Float] -- Target output
@@ -89,16 +92,13 @@ setOutputErrorTerms ts (Network os es ws) = es'
 
 learningRate :: Float -- Error
              -> Float
-learningRate e = e / (2 ** e) -- TODO Need to be more quadratic
+learningRate e = 0.5 --e / (2 ** e) -- TODO Need to be more quadratic
 
-setWeights :: Float -- Learning rate
-           -> Network 
-           -> Network
+-- | Adjust the network weights according to a learning rate.
+setWeights :: Float -> Network -> Network
 setWeights lr (Network os es ws) = Network os es ws'
-    where ws' = ws // [((l, i, j), f l i j) | l <- range (1, t), i <- range (0, m), j <- range (0, m)]
-          f l i j = let delta = lr * es!(l, i) * os!(l-1, j)
-                    in (ws!(l, i, j)) + delta
-
+    where ws' = ws // [(i, f i) | i <- rangeWeights]
+          f (l, i, j) = ws!(l, i, j) + (lr * es!(l, i) * os!(l-1, j))
 
 errorVal :: [Float] -- Actual output
          -> [Float] -- Target output
