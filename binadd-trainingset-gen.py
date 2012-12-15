@@ -1,3 +1,7 @@
+"""Script to generate training set for all possible additions of two binary
+numbers (0-31) and their binary solution.
+"""
+
 from itertools import product
 
 
