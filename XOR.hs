@@ -3,11 +3,13 @@ import Data.List
 import Debug.Trace
 import System.Random
 
-type InputVector =  [Float]
-type Outputs =      Array (Int, Int) Float
-type ErrorTerms =   Array (Int, Int) Float
-type Weights =      Array (Int, Int, Int) Float
-data Network =      Network Outputs ErrorTerms Weights
+type InputVector =          [Float]
+type TargetOutputVector =   [Float]
+type ActualOutputVector =   [Float]
+type Outputs =              Array (Int, Int) Float
+type ErrorTerms =           Array (Int, Int) Float
+type Weights =              Array (Int, Int, Int) Float
+data Network =              Network Outputs ErrorTerms Weights
 
 -- Config ----------------------------------------------------------------------
 
@@ -33,7 +35,7 @@ initNetwork = do
 
 -- | Return complete range for all used weight elements.
 rangeWeights :: [(Int, Int, Int)]
-rangeWeights = concat . map rangeWeights' $ range (1, t)
+rangeWeights = concat . map rangeWeights' $ range (1, lastLayer)
 
 -- | Return range for all used weight elements in a layer.
 rangeWeights' :: Int -> [(Int, Int, Int)]
@@ -47,11 +49,33 @@ rangeWeights'' l i = [(l, i, j) | j <- rangeLevel (l-1)]
 rangeLevel :: Int -> [Int]
 rangeLevel l = range (0, (topology !! l)-1)
 
-t = (length topology) -1
-m = (maximum topology) -1
-boundsOutputs =     ((0, 0),    (t, m))
-boundsErrorTerms =  ((0, 0),    (t, m))
-boundsWeights =     ((0, 0, 0), (t, m, m))
+lastLayer =         (length topology) -1
+maxLayerWidth =     (maximum topology) -1
+boundsOutputs =     ((0, 0),    (lastLayer, maxLayerWidth))
+boundsErrorTerms =  ((0, 0),    (lastLayer, maxLayerWidth))
+boundsWeights =     ((0, 0, 0), (lastLayer, maxLayerWidth, maxLayerWidth))
+
+-- Network Views ---------------------------------------------------------------
+
+-- | Return the weights on level 'l' for node 'i'.
+weightsAt :: Array (Int, Int, Int) Float -> Int -> Int -> [Float]
+weightsAt ws l i = map (ws!) (rangeWeights'' l i)
+
+-- Return the outputs at layer 'l'.
+outputsAt :: Outputs -> Int -> [Float]
+outputsAt os l = [os!(l, i) | i <- rangeLevel l]
+
+-- Return the outputs at layer 'l' given a network.
+outputsAt' :: Int -> Network -> [Float]
+outputsAt' l (Network os _ _) = outputsAt os l
+
+-- Return the range of output indices at layer 'l'.
+rngOutputs :: Int -> [(Int, Int)]
+rngOutputs l = [(l, i) | i <- rangeLevel l]
+
+-- Return the range of error term indices at layer 'l'.
+rngErrorTerms :: Int -> [(Int, Int)]
+rngErrorTerms l = [(l, i) | i <- rangeLevel l]
 
 -- Learning --------------------------------------------------------------------
 
@@ -59,32 +83,31 @@ boundsWeights =     ((0, 0, 0), (t, m, m))
 -- value for each node.
 setOutputs :: InputVector -> Network -> Network
 setOutputs xs (Network os es ws) = Network os' es ws
-    where os' =             foldl' layer input (range (1, t))
-          input =           os // [((0, i), x) | (i, x) <- zip [0..] xs]
-          layer os l =      os // [((l, i), calc os l i) | i <- rangeLevel l] 
-          calc os l i =     sigmoid $ dot (weights l i) (upstream os l)
-          weights l i =     [ws!(l, i, j) | j <- [0..m]]
-          upstream os l =   [os!(l-1, j)  | j <- [0..m]]
+    where input =       os // zip (rngOutputs 0) xs
+          os' =         foldl' layer input [1..lastLayer]
+          layer os l =  os // [((l, i), f os l i) | i <- rangeLevel l] 
+          f os l i =    sigmoid $ dot (weightsAt ws l i) (outputsAt os (l-1))
 
-setErrorTerms :: [Float] -- Target output
-              -> Network 
-              -> Network
+-- | Moving backwards through the network set the error term for each node
+-- based on its contribution towards the difference between the actual output
+-- and target output vectors.
+setErrorTerms :: TargetOutputVector -> Network -> Network
 setErrorTerms ts n@(Network os es ws) = Network os es' ws
-    where es' = foldl' f output (reverse $ range (1, (t-1))) 
-          f es l = es // [((l, i), g es l i) | i <- range (0, (topology !! l)-1)]
+    where es' = foldl' f output [lastLayer-1,lastLayer-2..1] 
+          f es l = es // [((l, i), g es l i) | i <- rangeLevel l]
           g es l i = let e = dot (weights (l+1) i) (errorTerms es (l+1))
                          o = os!(l, i)
                      in o * (1-o) * e
-          weights l i =     [ws!(l, j, i) | j <- range (0, (topology !! l)-1)]
-          errorTerms es l = [es!(l, j) | j <- range (0, (topology !! l)-1)]
+          weights l i =     [ws!(l, j, i) | j <- rangeLevel l]
+          errorTerms es l = [es!(l, j) | j <- rangeLevel l]
           output = setOutputErrorTerms ts n
 
-setOutputErrorTerms :: [Float] -- Target output
-                    -> Network
-                    -> ErrorTerms
-setOutputErrorTerms ts (Network os es ws) = es'
-    where es' = es // [((t, i), calc (os!(t, i)) t') | (i, t') <- zip [0..] ts] 
-          calc o t = o * (1-o) * (t-o)
+-- | Set the error terms for the output layer.
+setOutputErrorTerms :: TargetOutputVector -> Network -> ErrorTerms
+setOutputErrorTerms ts (Network os es _) = es'
+    where es' = es // zip (rngErrorTerms lastLayer) 
+                      (map f (zip (outputsAt os lastLayer) ts)) 
+          f (o, t) = o * (1-o) * (t-o)
 
 -- | Adjust the network weights according to a learning rate.
 setWeights :: Float -> Network -> Network
@@ -96,9 +119,6 @@ setWeights lr (Network os es ws) = Network os es ws'
 learningRate :: Float -> Float
 learningRate e = 0.5 --e / (2 ** e) -- TODO Need to be more quadratic
 
-output :: Network -> [Float]
-output (Network os _ _) = [os!(t, i) | i <- range (0, (topology !! t)-1)]
-
 -- | Given a single pair of actual and target output vectors return the 
 -- associated error value.
 errorVal :: [Float] -> [Float] -> Float -- Error
@@ -109,7 +129,7 @@ errorVal os ts = (sum $ zipWith (\t o -> (t-o)**2) ts os) * 0.5
 train' :: Network -> (Network, Float)
 train' n = foldl' f (n, 0) trainingSet
     where f (n, e) (x, t) = let n' = setErrorTerms t $ setOutputs x n
-                                o = output n'
+                                o = outputsAt' lastLayer n'
                                 e' = errorVal o t
                                 n'' = setWeights (learningRate e') n'
                             in (n'', e+e')
@@ -127,7 +147,6 @@ train n i =
 
 -- Helpers ---------------------------------------------------------------------
 
--- TODO At some point move from Float to Double.
 -- | The Sigmoid function.
 sigmoid :: Float -> Float
 sigmoid x = 1.0 / (1 + exp (-x))
@@ -136,16 +155,13 @@ sigmoid x = 1.0 / (1 + exp (-x))
 dot :: Num a => [a] -> [a] -> a 
 dot xs ys = sum (zipWith (*) xs ys)
 
---instance Show Network where
---    show (Network a b c) = "\n" ++ show a ++ "\n" ++ show b ++ "\n" ++ show c
-
 -- Main ------------------------------------------------------------------------
 
 test :: Network -> IO ()
 test n = do
     let output = map f trainingSet
     mapM_ putStrLn output
-    where f (x, t) = let o = output $ setOutputs x n
+    where f (x, t) = let o = (outputsAt' lastLayer) $ setOutputs x n
                      in (show x ++ "=" ++ show t ++ " => " ++ show o)
 
 main = do
