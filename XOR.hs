@@ -3,13 +3,24 @@ import Data.List
 import Debug.Trace
 import System.Random
 
+type InputVector =  [Float]
 type Outputs =      Array (Int, Int) Float
 type ErrorTerms =   Array (Int, Int) Float
 type Weights =      Array (Int, Int, Int) Float
 data Network =      Network Outputs ErrorTerms Weights
 
---instance Show Network where
---    show (Network a b c) = "\n" ++ show a ++ "\n" ++ show b ++ "\n" ++ show c
+-- Config ----------------------------------------------------------------------
+
+topology = [2, 2, 1]
+trainingSet = [
+              ([0, 0], [0]),
+              ([1, 0], [1]),
+              ([0, 1], [1]),
+              ([1, 1], [0])
+              ]
+threshold = 0.15
+
+-- Intialise Network -----------------------------------------------------------
 
 initNetwork :: IO Network
 initNetwork = do
@@ -42,26 +53,11 @@ boundsOutputs =     ((0, 0),    (t, m))
 boundsErrorTerms =  ((0, 0),    (t, m))
 boundsWeights =     ((0, 0, 0), (t, m, m))
 
-topology = [2, 2, 1]
-trainingSet = [
-              ([0, 0], [0]),
-              ([1, 0], [1]),
-              ([0, 1], [1]),
-              ([1, 1], [0])
-              ]
+-- Learning --------------------------------------------------------------------
 
--- TODO At some point move from Float to Double.
--- | The Sigmoid function.
-sigmoid :: Float -> Float
-sigmoid x = 1.0 / (1 + exp (-x))
-
--- | Dot product of two vectors.
-dot :: Num a => [a] -> [a] -> a 
-dot xs ys = sum (zipWith (*) xs ys)
-
-setOutputs :: [Float] -- Input vector
-           -> Network
-           -> Network
+-- | Given an input vector, move forward through the network setting the output
+-- value for each node.
+setOutputs :: InputVector -> Network -> Network
 setOutputs xs (Network os es ws) = Network os' es ws
     where os' =             foldl' layer input (range (1, t))
           input =           os // [((0, i), x) | (i, x) <- zip [0..] xs]
@@ -90,45 +86,60 @@ setOutputErrorTerms ts (Network os es ws) = es'
     where es' = es // [((t, i), calc (os!(t, i)) t') | (i, t') <- zip [0..] ts] 
           calc o t = o * (1-o) * (t-o)
 
-learningRate :: Float -- Error
-             -> Float
-learningRate e = 0.5 --e / (2 ** e) -- TODO Need to be more quadratic
-
 -- | Adjust the network weights according to a learning rate.
 setWeights :: Float -> Network -> Network
 setWeights lr (Network os es ws) = Network os es ws'
     where ws' = ws // [(i, f i) | i <- rangeWeights]
           f (l, i, j) = ws!(l, i, j) + (lr * es!(l, i) * os!(l-1, j))
 
-errorVal :: [Float] -- Actual output
-         -> [Float] -- Target output
-         -> Float -- Error
-errorVal os ts = (sum $ zipWith (\t o -> (t-o)**2) ts os) * 0.5
+-- | Return the learning rate as a function of the error.
+learningRate :: Float -> Float
+learningRate e = 0.5 --e / (2 ** e) -- TODO Need to be more quadratic
 
 output :: Network -> [Float]
 output (Network os _ _) = [os!(t, i) | i <- range (0, (topology !! t)-1)]
 
-train :: Network -> (Network, Float) -- Includes error
-train n = foldl' f (n, 0) trainingSet
+-- | Given a single pair of actual and target output vectors return the 
+-- associated error value.
+errorVal :: [Float] -> [Float] -> Float -- Error
+errorVal os ts = (sum $ zipWith (\t o -> (t-o)**2) ts os) * 0.5
+
+-- | Train the network on each member of the training set, then return the
+-- final network and its associated error.
+train' :: Network -> (Network, Float)
+train' n = foldl' f (n, 0) trainingSet
     where f (n, e) (x, t) = let n' = setErrorTerms t $ setOutputs x n
                                 o = output n'
                                 e' = errorVal o t
                                 n'' = setWeights (learningRate e') n'
                             in (n'', e+e')
 
-main = do
-    n <- initNetwork
-    n' <- iteration n
-    test n'
-    return ()
+-- | Repeatedly train the network until its error, after having processed all
+-- members of the training set, is below the threshold.
+train :: Network -> Int -> Network
+train n i =
+    let (n', e) = train' n
+        e' = trace i e
+    in if e' < threshold then n' else train n' (i+1)
+    where trace i e 
+              | rem i 500 == 0 = traceShow e e
+              | otherwise =      e
 
-iteration :: Network -> IO Network
-iteration n = do
-    let (n'@(Network _ _ c'), e) = train n
-    putStrLn (show e ++ "\t" ++ show (learningRate e)) 
-    if e < 0.15
-           then return n'
-           else iteration n'
+-- Helpers ---------------------------------------------------------------------
+
+-- TODO At some point move from Float to Double.
+-- | The Sigmoid function.
+sigmoid :: Float -> Float
+sigmoid x = 1.0 / (1 + exp (-x))
+
+-- | Dot product of two vectors.
+dot :: Num a => [a] -> [a] -> a 
+dot xs ys = sum (zipWith (*) xs ys)
+
+--instance Show Network where
+--    show (Network a b c) = "\n" ++ show a ++ "\n" ++ show b ++ "\n" ++ show c
+
+-- Main ------------------------------------------------------------------------
 
 test :: Network -> IO ()
 test n = do
@@ -136,4 +147,9 @@ test n = do
     mapM_ putStrLn output
     where f (x, t) = let o = output $ setOutputs x n
                      in (show x ++ "=" ++ show t ++ " => " ++ show o)
+
+main = do
+    n <- initNetwork
+    let n' = train n 0
+    test n'
 
