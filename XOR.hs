@@ -2,6 +2,8 @@ import Data.Array
 import Data.List
 import Debug.Trace
 import System.Random
+import System.Environment
+import Data.Maybe
 
 type InputVector =          [Float]
 type TargetOutputVector =   [Float]
@@ -9,31 +11,27 @@ type ActualOutputVector =   [Float]
 type Outputs =              Array (Int, Int) Float
 type ErrorTerms =           Array (Int, Int) Float
 type Weights =              Array (Int, Int, Int) Float
+type TrainingSet =          [([Float], [Float])]
 data Network =              Network Outputs ErrorTerms Weights
 
 -- Config ----------------------------------------------------------------------
 
-topology = [2, 2, 1]
-trainingSet = [
-              ([0, 0], [0]),
-              ([1, 0], [1]),
-              ([0, 1], [1]),
-              ([1, 1], [0])
-              ]
+--topology = [2, 2, 1]
+topology = [10, 10, 6]
 threshold = 0.1
 
 -- Intialise Network -----------------------------------------------------------
 
 initNetwork :: IO Network
 initNetwork = do
-    --rs' <- rs
-    --return (Network os es (ws rs'))
-    return (Network os es ws)
-    where --rs = sequence $ map (\_ -> randomRIO (-0.5, 0.5)) rangeWeights
+    rs' <- rs
+    return (Network os es (ws rs'))
+    --return (Network os es ws)
+    where rs = sequence $ map (\_ -> randomRIO (-0.5, 0.5)) rangeWeights
           os = listArray boundsOutputs [0,0..] 
           es = listArray boundsErrorTerms [0,0..]
-          --ws rs = listArray boundsWeights [0,0..] // zip rangeWeights rs
-          ws = array ((0,0,0),(2,1,1)) [((0,0,0),0.0),((0,0,1),0.0),((0,1,0),0.0),((0,1,1),0.0),((1,0,0),-4.3511395),((1,0,1),-4.35114),((1,1,0),-13.027913),((1,1,1),-13.027913),((2,0,0),245.61946),((2,0,1),-256.0),((2,1,0),0.0),((2,1,1),0.0)]
+          ws rs = listArray boundsWeights [0,0..] // zip rangeWeights rs
+--          ws = array ((0,0,0),(2,1,1)) [((0,0,0),0.0),((0,0,1),0.0),((0,1,0),0.0),((0,1,1),0.0),((1,0,0),-4.3511395),((1,0,1),-4.35114),((1,1,0),-13.027913),((1,1,1),-13.027913),((2,0,0),245.61946),((2,0,1),-256.0),((2,1,0),0.0),((2,1,1),0.0)]
 
 -- | Return complete range for all used weight elements.
 rangeWeights :: [(Int, Int, Int)]
@@ -128,8 +126,8 @@ errorVal os ts = (sum $ zipWith (\t o -> (t-o)**2) ts os) * 0.5
 
 -- | Train the network on each member of the training set, then return the
 -- final network and its associated error.
-train' :: Network -> (Network, Float)
-train' n = foldl' f (n, 0) trainingSet
+train' :: TrainingSet -> Network -> (Network, Float)
+train' tset n = foldl' f (n, 0) tset
     where f (n, e) (x, t) = let n' = setErrorTerms t $ setOutputs x n
                                 o = outputsAt' lastLayer n'
                                 e' = errorVal o t
@@ -138,15 +136,15 @@ train' n = foldl' f (n, 0) trainingSet
 
 -- | Repeatedly train the network until its error, after having processed all
 -- members of the training set, is below the threshold.
-train :: Network -> Int -> IO Network
-train n i = do
+train :: TrainingSet -> Network -> Int -> IO Network
+train tset n i = do
     --let (n', e) = train' n
-    let (n'@(Network _ _ ws), e) = train' n
+    let (n'@(Network _ _ ws), e) = train' tset  n
         e' = trace i e ws
     n'' <- if areWeightsSame n n' then mutateWeights n else return n'
-    if e' < threshold then return n'' else train n'' (i+1)
+    if e' < threshold then return n'' else train tset n'' (i+1)
     where trace i e ws
-              | rem i 5000 == 0 = traceShow (show e {-++ "-" ++ show ws-}) e
+              | rem i 1 == 0 = traceShow (show e {-++ "-" ++ show ws-}) e
               | otherwise =      e
 
 mutateWeights :: Network -> IO Network
@@ -173,15 +171,32 @@ dot xs ys = sum (zipWith (*) xs ys)
 
 -- Main ------------------------------------------------------------------------
 
-test :: Network -> IO ()
-test n = do
-    let output = map f trainingSet
+test :: TrainingSet -> Network -> IO ()
+test tset n = do
+    let output = map f tset
     mapM_ putStrLn output
     where f (x, t) = let o = (outputsAt' lastLayer) $ setOutputs x n
                      in (show x ++ "=" ++ show t ++ " => " ++ show o)
 
+trainingSet :: String -> IO TrainingSet
+trainingSet fn = do
+    xs <- readFile fn
+    return . map fmt $ lines xs
+    where fmt x = let (a, b) = splitAt (fromJust $ elemIndex ':' x) x
+                      a' = map read $ splitOn ',' a
+                      b' = map read . splitOn ',' $ tail b
+                  in (a', b')
+
+splitOn :: Eq a => a -> [a] -> [[a]]
+splitOn d xs = case elemIndex d xs of
+                   Nothing ->  [xs]
+                   (Just i) -> let (x', xs') = splitAt i xs
+                               in x' : splitOn d (tail xs')
+
 main = do
+    fn <- fmap head getArgs
+    tset <- trainingSet fn
     n <- initNetwork
-    n' <- train n 0
-    test n'
+    n' <- train tset n 0
+    test tset n'
 
