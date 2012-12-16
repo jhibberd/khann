@@ -20,7 +20,7 @@ trainingSet = [
               ([0, 1], [1]),
               ([1, 1], [0])
               ]
-threshold = 0.15
+threshold = 0.1
 
 -- Intialise Network -----------------------------------------------------------
 
@@ -117,7 +117,7 @@ setWeights lr (Network os es ws) = Network os es ws'
 
 -- | Return the learning rate as a function of the error.
 learningRate :: Float -> Float
-learningRate e = 0.5 --e / (2 ** e) -- TODO Need to be more quadratic
+learningRate e = if e > 0.2 then 0.5 else e ** (7 * (0.65-e))
 
 -- | Given a single pair of actual and target output vectors return the 
 -- associated error value.
@@ -142,7 +142,7 @@ train n i =
         e' = trace i e
     in if e' < threshold then n' else train n' (i+1)
     where trace i e 
-              | rem i 500 == 0 = traceShow e e
+              | rem i 5000 == 0 = traceShow e e
               | otherwise =      e
 
 -- Helpers ---------------------------------------------------------------------
