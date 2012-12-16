@@ -142,7 +142,7 @@ train tset n i = do
     let (n'@(Network _ _ ws), e) = train' tset  n
         e' = trace i e ws
     n'' <- if areWeightsSame n n' then mutateWeights n else return n'
-    if e' < threshold then return n'' else train tset n'' (i+1)
+    if e' < threshold || areWeightsSame n n' then return n'' else train tset n'' (i+1)
     where trace i e ws
               | rem i 1 == 0 = traceShow (show e {-++ "-" ++ show ws-}) e
               | otherwise =      e
