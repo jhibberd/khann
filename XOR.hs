@@ -16,7 +16,8 @@ data Network =              Network Outputs ErrorTerms Weights
 
 -- Config ----------------------------------------------------------------------
 
-topology = [10, 10, 6, 6]
+-- topology = [10, 15, 10, 6] -- binadd
+topology = [784, 1176, 392, 10] -- digit
 threshold = 0.1
 learningRate = 0.5
 
@@ -118,26 +119,31 @@ setWeights lr (Network os es ws) = Network os es ws'
 errorVal :: [Float] -> [Float] -> Float -- Error
 errorVal os ts = (sum $ zipWith (\t o -> (t-o)**2) ts os) * 0.5
 
+correctClassify :: [Float] -> [Float] -> Int
+correctClassify os ts = let os' = map (fromIntegral . round) os
+                        in if os' == ts then 1 else 0
+
 -- | Train the network on each member of the training set, then return the
 -- final network and its associated error.
-train' :: TrainingSet -> Network -> (Network, Float)
-train' tset n = foldl' f (n, 0) tset
-    where f (n, e) (x, t) = let n' = setErrorTerms t $ setOutputs x n
-                                o = outputsAt' lastLayer n'
-                                e' = errorVal o t
-                                n'' = setWeights learningRate n'
-                            in (n'', e+e')
+train' :: TrainingSet -> Network -> (Network, Float, Int)
+train' tset n = foldl' f (n, 0, 0) tset
+    where f (n, e, c) (x, t) = let n' = setErrorTerms t $ setOutputs x n
+                                   o = outputsAt' lastLayer n'
+                                   e' = errorVal o t
+                                   c' = correctClassify o t
+                                   n'' = setWeights learningRate n'
+                               in (n'', e+e', c+c')
 
 -- | Repeatedly train the network until its error, after having processed all
 -- members of the training set, is below the threshold.
 train :: TrainingSet -> Network -> Int -> IO Network
 train tset n i = do
-    let (n'@(Network _ _ ws), e) = train' tset n
-        e' = trace i e ws
+    let (n'@(Network _ _ ws), e, c) = train' tset n
+        e' = trace i e ws c
     if e' < threshold || areWeightsSame n n' then return n' else train tset n' (i+1)
-    where trace i e ws
-              | rem i 10 == 0 = traceShow (show e) e
-              | otherwise =      e
+    where trace i e ws c
+              | rem i 10 == 0 = traceShow (show e ++ "-" ++ show c ++ "/" ++ show (length tset)) e
+              | otherwise =     e
 
 areWeightsSame :: Network -> Network -> Bool
 areWeightsSame (Network _ _ ws1) (Network _ _ ws2) = ws1 == ws2

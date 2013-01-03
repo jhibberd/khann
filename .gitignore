@@ -7,4 +7,5 @@
 *.ps
 *.hp
 XOR
-digit-train.csv
+*.csv
+*.train
