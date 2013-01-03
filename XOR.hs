@@ -16,9 +16,9 @@ data Network =              Network Outputs ErrorTerms Weights
 
 -- Config ----------------------------------------------------------------------
 
---topology = [2, 2, 1]
-topology = [10, 10, 6]
+topology = [10, 10, 6, 6]
 threshold = 0.1
+learningRate = 0.5
 
 -- Intialise Network -----------------------------------------------------------
 
@@ -26,12 +26,10 @@ initNetwork :: IO Network
 initNetwork = do
     rs' <- rs
     return (Network os es (ws rs'))
-    --return (Network os es ws)
     where rs = sequence $ map (\_ -> randomRIO (-0.5, 0.5)) rangeWeights
           os = listArray boundsOutputs [0,0..] 
           es = listArray boundsErrorTerms [0,0..]
           ws rs = listArray boundsWeights [0,0..] // zip rangeWeights rs
---          ws = array ((0,0,0),(2,1,1)) [((0,0,0),0.0),((0,0,1),0.0),((0,1,0),0.0),((0,1,1),0.0),((1,0,0),-4.3511395),((1,0,1),-4.35114),((1,1,0),-13.027913),((1,1,1),-13.027913),((2,0,0),245.61946),((2,0,1),-256.0),((2,1,0),0.0),((2,1,1),0.0)]
 
 -- | Return complete range for all used weight elements.
 rangeWeights :: [(Int, Int, Int)]
@@ -115,10 +113,6 @@ setWeights lr (Network os es ws) = Network os es ws'
     where ws' = ws // [(i, f i) | i <- rangeWeights]
           f (l, i, j) = ws!(l, i, j) + (lr * es!(l, i) * os!(l-1, j))
 
--- | Return the learning rate as a function of the error.
-learningRate :: Float -> Float
-learningRate e = 0.5 -- if e > 0.2 then 0.5 else e ** (7 * (0.65-e))
-
 -- | Given a single pair of actual and target output vectors return the 
 -- associated error value.
 errorVal :: [Float] -> [Float] -> Float -- Error
@@ -131,30 +125,19 @@ train' tset n = foldl' f (n, 0) tset
     where f (n, e) (x, t) = let n' = setErrorTerms t $ setOutputs x n
                                 o = outputsAt' lastLayer n'
                                 e' = errorVal o t
-                                n'' = setWeights (learningRate e') n'
+                                n'' = setWeights learningRate n'
                             in (n'', e+e')
 
 -- | Repeatedly train the network until its error, after having processed all
 -- members of the training set, is below the threshold.
 train :: TrainingSet -> Network -> Int -> IO Network
 train tset n i = do
-    --let (n', e) = train' n
-    let (n'@(Network _ _ ws), e) = train' tset  n
+    let (n'@(Network _ _ ws), e) = train' tset n
         e' = trace i e ws
-    n'' <- if areWeightsSame n n' then mutateWeights n else return n'
-    if e' < threshold || areWeightsSame n n' then return n'' else train tset n'' (i+1)
+    if e' < threshold || areWeightsSame n n' then return n' else train tset n' (i+1)
     where trace i e ws
-              | rem i 1 == 0 = traceShow (show e {-++ "-" ++ show ws-}) e
+              | rem i 10 == 0 = traceShow (show e) e
               | otherwise =      e
-
-mutateWeights :: Network -> IO Network
-mutateWeights (Network os es ws) = do
-    rs' <- rs
-    let xx = ws' rs'
-    return (Network os es xx)
-    where ws' randoms = ws // zip rangeWeights (newVals randoms)
-          newVals randoms = [ws!i + r | (i, r) <- zip rangeWeights randoms]
-          rs = sequence $ map (\_ -> randomRIO (-5, 5)) rangeWeights
 
 areWeightsSame :: Network -> Network -> Bool
 areWeightsSame (Network _ _ ws1) (Network _ _ ws2) = ws1 == ws2
