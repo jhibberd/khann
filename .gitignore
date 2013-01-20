@@ -6,6 +6,4 @@
 *.prof
 *.ps
 *.hp
-XOR
 *.csv
-*.train
