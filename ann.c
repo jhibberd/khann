@@ -74,7 +74,6 @@ main () {
     num_output_nodes = topology[num_layers-1];
 
     readTrainingSet();
-
     initWeight();
 
     int i, c;
@@ -123,13 +122,14 @@ int classified(int i) {
 /* Read training set from file. */
 void readTrainingSet() {
     FILE *ptr_file;
-    char buf[1000];
+    char buf[10000];
     char *intkn, *outtkn, *tkn;
     int i, j;
 
+    printf("Reading training set...");
     i = 0;
     ptr_file = fopen(TRAIN_FILE, "r");
-    while (fgets(buf, 1000, ptr_file) != NULL) {
+    while (fgets(buf, 10000, ptr_file) != NULL) {
 
         intkn = strtok(buf, ":");
         outtkn = strtok(NULL, ":");
@@ -175,11 +175,9 @@ void test() {
 void initWeight() {
     int l, j, k;
 
-    /* Seed random number generator */
-    srand(time(NULL));
-    /* srand(10); Deterministic */
-
     /* Assign each weight a number between -0.5 and +0.5 */
+    printf("Initialising weights...");
+    srand(time(NULL));
     for (l = 1; l < num_layers; ++l)
         for (j = 0; j < topology[l]; ++j)
             for (k = 0; k < topology[l-1]; ++k)
