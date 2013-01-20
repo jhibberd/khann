@@ -35,14 +35,14 @@ int topology[] = {NUM_INPUT_NODES, 20, 20, NUM_OUTPUT_NODES};
 /* Digit Recogniser */
 #define ERROR_THRESHOLD 0.13
 #define LEARNING_RATE 0.5
-#define DEBUG_THRESHOLD 5
+#define DEBUG_THRESHOLD 1
 #define LAYERS 4
 #define TRAIN_SIZE 42000
-#define MAX_LAYER_SIZE 2352
+#define MAX_LAYER_SIZE 1568
 #define TRAIN_FILE "train/digit.train"
 #define NUM_INPUT_NODES 784
 #define NUM_OUTPUT_NODES 10
-int topology[] = {NUM_INPUT_NODES, 2352, 1568, NUM_OUTPUT_NODES};
+int topology[] = {NUM_INPUT_NODES, 1568, 784, NUM_OUTPUT_NODES};
 
 int num_layers;
 int num_output_nodes; 
@@ -80,6 +80,8 @@ main () {
     float e;
     long n = 0;
 
+    printf("Learning...\n");
+    fflush(stdout);
     do {
         e = 0;
         c = 0; /* correctly classified */
@@ -92,6 +94,7 @@ main () {
         }
         if (n == DEBUG_THRESHOLD) {
             printf("%f (%d/%d)\n", e, c, TRAIN_SIZE);
+            fflush(stdout);
             n = 0;
         }
         else 
@@ -126,7 +129,8 @@ void readTrainingSet() {
     char *intkn, *outtkn, *tkn;
     int i, j;
 
-    printf("Reading training set...");
+    printf("Reading training set...\n");
+    fflush(stdout);
     i = 0;
     ptr_file = fopen(TRAIN_FILE, "r");
     while (fgets(buf, 10000, ptr_file) != NULL) {
@@ -145,6 +149,11 @@ void readTrainingSet() {
         do {
             trainOut[i][j++] = atof(tkn);  
         } while((tkn = strtok(NULL, ",")) != NULL);
+
+        if (i % 1000 == 0) {
+            printf("\t%d/%d\n", i, TRAIN_SIZE);
+            fflush(stdout);
+        }
 
         ++i;
     }
@@ -176,7 +185,8 @@ void initWeight() {
     int l, j, k;
 
     /* Assign each weight a number between -0.5 and +0.5 */
-    printf("Initialising weights...");
+    printf("Initialising weights...\n");
+    fflush(stdout);
     srand(time(NULL));
     for (l = 1; l < num_layers; ++l)
         for (j = 0; j < topology[l]; ++j)
