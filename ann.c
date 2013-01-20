@@ -32,7 +32,7 @@ int topology[] = {NUM_INPUT_NODES, 4, 4, NUM_OUTPUT_NODES};
 int topology[] = {NUM_INPUT_NODES, 20, 20, NUM_OUTPUT_NODES};
 */
 
-/* Digit Recogniser */
+/* Digit Recogniser
 #define ERROR_THRESHOLD 0.13
 #define LEARNING_RATE 0.5
 #define DEBUG_THRESHOLD 1
@@ -43,6 +43,19 @@ int topology[] = {NUM_INPUT_NODES, 20, 20, NUM_OUTPUT_NODES};
 #define NUM_INPUT_NODES 784
 #define NUM_OUTPUT_NODES 10
 int topology[] = {NUM_INPUT_NODES, 1568, 784, NUM_OUTPUT_NODES};
+*/
+
+/* Digit Recogniser (compressed x2) */
+#define ERROR_THRESHOLD 0.13
+#define LEARNING_RATE 0.5
+#define DEBUG_THRESHOLD 1
+#define LAYERS 4
+#define TRAIN_SIZE 42000
+#define MAX_LAYER_SIZE 392
+#define TRAIN_FILE "train/digit.2.train"
+#define NUM_INPUT_NODES 196
+#define NUM_OUTPUT_NODES 10
+int topology[] = {NUM_INPUT_NODES, 392, 196, NUM_OUTPUT_NODES};
 
 int num_layers;
 int num_output_nodes; 
