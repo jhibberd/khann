@@ -13,23 +13,36 @@
 #define LAYERS 4
 #define TRAIN_SIZE 4
 #define MAX_LAYER_SIZE 4
-#define TRAIN_FILE "xor.train"
+#define TRAIN_FILE "train/xor.train"
 #define NUM_INPUT_NODES 2
 #define NUM_OUTPUT_NODES 1
 int topology[] = {NUM_INPUT_NODES, 4, 4, NUM_OUTPUT_NODES};
 */
 
-/* Binary Addition */
+/* Binary Addition
 #define ERROR_THRESHOLD 0.13
 #define LEARNING_RATE 0.5
 #define DEBUG_THRESHOLD 100
 #define LAYERS 4
 #define TRAIN_SIZE 961
 #define MAX_LAYER_SIZE 20
-#define TRAIN_FILE "binadd.train"
+#define TRAIN_FILE "train/binadd.train"
 #define NUM_INPUT_NODES 10
 #define NUM_OUTPUT_NODES 6
 int topology[] = {NUM_INPUT_NODES, 20, 20, NUM_OUTPUT_NODES};
+*/
+
+/* Digit Recogniser */
+#define ERROR_THRESHOLD 0.13
+#define LEARNING_RATE 0.5
+#define DEBUG_THRESHOLD 5
+#define LAYERS 4
+#define TRAIN_SIZE 42000
+#define MAX_LAYER_SIZE 2352
+#define TRAIN_FILE "train/digit.train"
+#define NUM_INPUT_NODES 784
+#define NUM_OUTPUT_NODES 10
+int topology[] = {NUM_INPUT_NODES, 2352, 1568, NUM_OUTPUT_NODES};
 
 int num_layers;
 int num_output_nodes; 
