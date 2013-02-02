@@ -5,57 +5,25 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "ann.h"
 
-/* XOR
-#define ERROR_THRESHOLD 0.13
-#define LEARNING_RATE 0.5
-#define DEBUG_THRESHOLD 1000
-#define LAYERS 4
-#define TRAIN_SIZE 4
-#define MAX_LAYER_SIZE 4
-#define TRAIN_FILE "train/xor.train"
-#define NUM_INPUT_NODES 2
-#define NUM_OUTPUT_NODES 1
+/* XOR */
 int topology[] = {NUM_INPUT_NODES, 4, 4, NUM_OUTPUT_NODES};
-*/
 
 /* Binary Addition
-#define ERROR_THRESHOLD 0.13
-#define LEARNING_RATE 0.5
-#define DEBUG_THRESHOLD 100
-#define LAYERS 4
-#define TRAIN_SIZE 961
-#define MAX_LAYER_SIZE 20
-#define TRAIN_FILE "train/binadd.train"
-#define NUM_INPUT_NODES 10
-#define NUM_OUTPUT_NODES 6
 int topology[] = {NUM_INPUT_NODES, 20, 20, NUM_OUTPUT_NODES};
 */
 
 /* Digit Recogniser
-#define ERROR_THRESHOLD 0.13
-#define LEARNING_RATE 0.5
-#define DEBUG_THRESHOLD 1
-#define LAYERS 4
-#define TRAIN_SIZE 42000
-#define MAX_LAYER_SIZE 1568
-#define TRAIN_FILE "train/digit.train"
-#define NUM_INPUT_NODES 784
-#define NUM_OUTPUT_NODES 10
 int topology[] = {NUM_INPUT_NODES, 1568, 784, NUM_OUTPUT_NODES};
 */
 
-/* Digit Recogniser (compressed x2) */
-#define ERROR_THRESHOLD 0.13
-#define LEARNING_RATE 0.5
-#define DEBUG_THRESHOLD 1
-#define LAYERS 4
-#define TRAIN_SIZE 42000
-#define MAX_LAYER_SIZE 392
-#define TRAIN_FILE "train/digit.2.train"
-#define NUM_INPUT_NODES 196
-#define NUM_OUTPUT_NODES 10
+/* Digit Recogniser (compressed x2)
 int topology[] = {NUM_INPUT_NODES, 392, 196, NUM_OUTPUT_NODES};
+*/
+
+void save_weights_to_file(void);
+void load_weights_from_file(void);
 
 int num_layers;
 int num_output_nodes; 
@@ -63,7 +31,6 @@ int num_output_nodes;
 float out[LAYERS][MAX_LAYER_SIZE];
 float err[LAYERS][MAX_LAYER_SIZE];
 float wgt[LAYERS][MAX_LAYER_SIZE][MAX_LAYER_SIZE];
-
 float trainIn[TRAIN_SIZE][NUM_INPUT_NODES];
 float trainOut[TRAIN_SIZE][NUM_OUTPUT_NODES];
 
@@ -87,6 +54,13 @@ main () {
     num_output_nodes = topology[num_layers-1];
 
     readTrainingSet();
+
+    load_weights_from_file();
+    float x = wgt[1][0][1];
+    printf("%f", x);
+    test();
+    exit(0);
+
     initWeight();
 
     int i, c;
@@ -115,6 +89,7 @@ main () {
     } while (e > ERROR_THRESHOLD);
 
     test();
+    save_weights_to_file();
 }
 
 /* Return whether the 'i'-th element in the trainin set is correctly 
