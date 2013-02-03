@@ -47,6 +47,40 @@ void test(void);
 float dotprod(float* a, float* b, int n);
 float sigmoid(float x);
 
+/* Mock implementation of 'eval' */
+float *eval(float *iv);
+
+float *eval(float *iv) {
+
+    /* Init constants */
+    num_layers = sizeof(topology) / sizeof(int);
+    num_output_nodes = topology[num_layers-1];
+
+    static short loaded = 0;
+    if (!loaded) {
+        load_weights_from_file();
+        loaded = 1;
+        printf("%s", "loading");
+    }
+
+    //-----
+
+    int j, l;
+    float o;
+    
+    for (j = 0; j < topology[0]; ++j)
+        out[0][j] = *iv++;
+
+    for (l = 1; l < num_layers; ++l) {
+        for (j = 0; j < topology[l]; ++j) {
+            o = dotprod(wgt[l][j], out[l-1], topology[l-1]);
+            out[l][j] = sigmoid(o);
+        } 
+    }
+
+    return out[num_layers-1];
+}
+
 main () {
 
     /* Init constants */

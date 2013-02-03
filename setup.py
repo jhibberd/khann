@@ -1,11 +1,23 @@
-# http://docs.python.org/2/extending/building.html
+"""Utility script to compile artificial neural network C program as python
+extension module.
+
+Usage:
+    python setup.py build
+
+See:
+    http://docs.python.org/2/extending/building.html
+
+"""
 
 from distutils.core import setup, Extension
 
-module1 = Extension('spam',
-                    sources = ['spammodule.c'])
+mod = Extension(
+    "ann",
+    sources=["annmodule.c", "ann.c", "storage.c"])
 
-setup (name = 'PackageName',
-       version = '1.0',
-       description = 'This is a demo package',
-       ext_modules = [module1])
+setup(
+    name="ArtificialNeuralNetwork",
+    version="1.0",
+    description="Interface with Artificial Neural Network",
+    ext_modules=[mod])
+

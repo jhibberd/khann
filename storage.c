@@ -31,9 +31,6 @@ void save_weights_to_file(void)
 
 void load_weights_from_file(void) 
 {
-    printf("Loading weights...\n");
-    fflush(stdout);
-
     int l, j, k;
     float x;
     FILE *fp;
