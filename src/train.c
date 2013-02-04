@@ -13,9 +13,10 @@ extern float trainOut[TRAIN_SIZE][NUM_OUTPUT_NODES];
 
 extern void save_weights_to_file(void);
 extern void init_weights(void);
-extern void setOutput(int t);
+extern void set_outputs(float *iv);
+extern void set_weights(void);
 extern float error(int i);
-extern void setErrorTerm(int i);
+extern void set_error_terms(int i);
 
 static void train(void);
 static void read_training_set(void);
@@ -24,6 +25,7 @@ static void test(void);
 
 main () 
 {
+    setbuf(stdout, NULL); /* Disable stdout buffering */
     read_training_set();
     init_weights();
     train();
@@ -34,24 +36,23 @@ main ()
 void train(void)
 {
     int i, c;
-    float e;
+    float e, *iv;
     long n = 0;
 
-    printf("Learning...\n");
-    fflush(stdout);
+    printf("Training...\n");
     do {
         e = 0;
         c = 0; /* correctly classified */
         for (i = 0; i < TRAIN_SIZE; ++i) {
-            setOutput(i);
+            iv = trainIn[i];
+            set_outputs(iv);
             e += error(i);
             c += classified(i);
-            setErrorTerm(i);
-            setWeight();
+            set_error_terms(i);
+            set_weights();
         }
         if (n == DEBUG_THRESHOLD) {
             printf("%f (%d/%d)\n", e, c, TRAIN_SIZE);
-            fflush(stdout);
             n = 0;
         }
         else 
@@ -86,7 +87,6 @@ static void read_training_set(void)
     int i, j;
 
     printf("Reading training set...\n");
-    fflush(stdout);
     i = 0;
     ptr_file = fopen(TRAIN_FILE, "r");
     while (fgets(buf, 10000, ptr_file) != NULL) {
@@ -108,7 +108,6 @@ static void read_training_set(void)
 
         if (i % 1 == 0) {
             printf("\t%d/%d\n", i, TRAIN_SIZE);
-            fflush(stdout);
         }
 
         ++i;
@@ -120,6 +119,8 @@ static void read_training_set(void)
 static void test() 
 {
     int i, j;
+    float *iv;
+
     for (i = 0; i < TRAIN_SIZE; ++i) {
 
         for (j = 0; j < NUM_INPUT_NODES; j++)
@@ -130,7 +131,8 @@ static void test()
             printf("%.0f-", trainOut[i][j]);
         printf(" -> ");
 
-        setOutput(i);
+        iv = trainIn[i];
+        set_outputs(iv);
 
         for (j = 0; j < NUM_OUTPUT_NODES; j++)
             printf("%f-", out[LAYERS-1][j]);

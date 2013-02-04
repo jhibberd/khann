@@ -28,13 +28,12 @@ float wgt[LAYERS][MAX_LAYER_SIZE][MAX_LAYER_SIZE];
 float trainIn[TRAIN_SIZE][NUM_INPUT_NODES];
 float trainOut[TRAIN_SIZE][NUM_OUTPUT_NODES];
 
-extern void save_weights_to_file(void);
 extern void load_weights_from_file(void);
 
 void init_weights(void);
-void setOutput(int t);
-void setErrorTerm(int i);
-void setWeight(void);
+void set_outputs(float *iv);
+void set_error_terms(int i);
+void set_weights(void);
 float error(int i);
 float *eval(float *iv);
 static float dotprod(float* a, float* b, int n);
@@ -42,26 +41,14 @@ static float sigmoid(float x);
 
 float *eval(float *iv) 
 {
+    /* Lazily load the neural network from file */
     static short loaded = 0;
     if (!loaded) {
         load_weights_from_file();
         loaded = 1;
-        printf("%s", "loading");
     }
 
-    int j, l;
-    float o;
-    
-    for (j = 0; j < topology[0]; ++j)
-        out[0][j] = *iv++;
-
-    for (l = 1; l < LAYERS; ++l) {
-        for (j = 0; j < topology[l]; ++j) {
-            o = dotprod(wgt[l][j], out[l-1], topology[l-1]);
-            out[l][j] = sigmoid(o);
-        } 
-    }
-
+    set_outputs(iv);
     return out[LAYERS-1];
 }
 
@@ -71,7 +58,6 @@ void init_weights(void)
 
     /* Assign each weight a number between -0.5 and +0.5 */
     printf("Initialising weights...\n");
-    fflush(stdout);
     srand(time(NULL));
     for (l = 1; l < LAYERS; ++l)
         for (j = 0; j < topology[l]; ++j)
@@ -79,17 +65,15 @@ void init_weights(void)
                 wgt[l][j][k] = ((double)rand() / (double)RAND_MAX) - 0.5;
 }
 
-
+/* TODO(jhibberd) Redo comment */
 /* Sets the output value of each node according to the current network weights
  * and the input vector ('iv') belonging to the 't'th element in the training
  * set. */
-void setOutput(int t) 
+void set_outputs(float *iv) 
 {
     int j, l;
     float o;
-    float *iv;
     
-    iv = trainIn[t];
     for (j = 0; j < topology[0]; ++j)
         out[0][j] = *iv++;
 
@@ -101,7 +85,7 @@ void setOutput(int t)
     }
 }
 
-void setErrorTerm(int i) 
+void set_error_terms(int i) 
 {
     int n;
     float *o, *t, *e;
@@ -136,7 +120,7 @@ void setErrorTerm(int i)
      }
 }
 
-void setWeight(void) 
+void set_weights(void) 
 {
     int l, i, n;
     float *w, *o, f;
