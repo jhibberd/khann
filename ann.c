@@ -22,40 +22,26 @@ int topology[] = {NUM_INPUT_NODES, 1568, 784, NUM_OUTPUT_NODES};
 int topology[] = {NUM_INPUT_NODES, 392, 196, NUM_OUTPUT_NODES};
 */
 
-void save_weights_to_file(void);
-void load_weights_from_file(void);
-
-int num_layers;
-int num_output_nodes; 
-
 float out[LAYERS][MAX_LAYER_SIZE];
 float err[LAYERS][MAX_LAYER_SIZE];
 float wgt[LAYERS][MAX_LAYER_SIZE][MAX_LAYER_SIZE];
 float trainIn[TRAIN_SIZE][NUM_INPUT_NODES];
 float trainOut[TRAIN_SIZE][NUM_OUTPUT_NODES];
 
-void initWeight(void);
-void readTrainingSet(void);
+extern void save_weights_to_file(void);
+extern void load_weights_from_file(void);
 
+void init_weights(void);
 void setOutput(int t);
 void setErrorTerm(int i);
 void setWeight(void);
 float error(int i);
-int classified(int i);
-
-void test(void);
-float dotprod(float* a, float* b, int n);
-float sigmoid(float x);
-
-/* Mock implementation of 'eval' */
 float *eval(float *iv);
+static float dotprod(float* a, float* b, int n);
+static float sigmoid(float x);
 
-float *eval(float *iv) {
-
-    /* Init constants */
-    num_layers = sizeof(topology) / sizeof(int);
-    num_output_nodes = topology[num_layers-1];
-
+float *eval(float *iv) 
+{
     static short loaded = 0;
     if (!loaded) {
         load_weights_from_file();
@@ -63,154 +49,31 @@ float *eval(float *iv) {
         printf("%s", "loading");
     }
 
-    //-----
-
     int j, l;
     float o;
     
     for (j = 0; j < topology[0]; ++j)
         out[0][j] = *iv++;
 
-    for (l = 1; l < num_layers; ++l) {
+    for (l = 1; l < LAYERS; ++l) {
         for (j = 0; j < topology[l]; ++j) {
             o = dotprod(wgt[l][j], out[l-1], topology[l-1]);
             out[l][j] = sigmoid(o);
         } 
     }
 
-    return out[num_layers-1];
+    return out[LAYERS-1];
 }
 
-main () {
-
-    /* Init constants */
-    num_layers = sizeof(topology) / sizeof(int);
-    num_output_nodes = topology[num_layers-1];
-
-    readTrainingSet();
-
-    load_weights_from_file();
-    float x = wgt[1][0][1];
-    printf("%f", x);
-    test();
-    exit(0);
-
-    initWeight();
-
-    int i, c;
-    float e;
-    long n = 0;
-
-    printf("Learning...\n");
-    fflush(stdout);
-    do {
-        e = 0;
-        c = 0; /* correctly classified */
-        for (i = 0; i < TRAIN_SIZE; ++i) {
-            setOutput(i);
-            e += error(i);
-            c += classified(i);
-            setErrorTerm(i);
-            setWeight();
-        }
-        if (n == DEBUG_THRESHOLD) {
-            printf("%f (%d/%d)\n", e, c, TRAIN_SIZE);
-            fflush(stdout);
-            n = 0;
-        }
-        else 
-            ++n;
-    } while (e > ERROR_THRESHOLD);
-
-    test();
-    save_weights_to_file();
-}
-
-/* Return whether the 'i'-th element in the trainin set is correctly 
-classified. */
-int classified(int i) {
-    
-    int j;
-    float *o, *t;
-
-    o = out[num_layers-1];
-    t = trainOut[i];
-
-    j = num_output_nodes;
-    while (j-- > 0)
-        if (*t++ != roundf(*o++))
-            return 0;
-    
-    return 1;
-}
-
-/* Read training set from file. */
-void readTrainingSet() {
-    FILE *ptr_file;
-    char buf[10000];
-    char *intkn, *outtkn, *tkn;
-    int i, j;
-
-    printf("Reading training set...\n");
-    fflush(stdout);
-    i = 0;
-    ptr_file = fopen(TRAIN_FILE, "r");
-    while (fgets(buf, 10000, ptr_file) != NULL) {
-
-        intkn = strtok(buf, ":");
-        outtkn = strtok(NULL, ":");
-    
-        j = 0;
-        tkn = strtok(intkn, ",");
-        do {
-            trainIn[i][j++] = atof(tkn);  
-        } while((tkn = strtok(NULL, ",")) != NULL);
-
-        j = 0;
-        tkn = strtok(outtkn, ",");
-        do {
-            trainOut[i][j++] = atof(tkn);  
-        } while((tkn = strtok(NULL, ",")) != NULL);
-
-        if (i % 1000 == 0) {
-            printf("\t%d/%d\n", i, TRAIN_SIZE);
-            fflush(stdout);
-        }
-
-        ++i;
-    }
-
-    fclose(ptr_file);
-}
-
-void test() {
-    int i, j;
-    for (i = 0; i < TRAIN_SIZE; ++i) {
-
-        for (j = 0; j < NUM_INPUT_NODES; j++)
-            printf("%.0f-", trainIn[i][j]);
-        printf(" -> ");
-
-        for (j = 0; j < NUM_OUTPUT_NODES; j++)
-            printf("%.0f-", trainOut[i][j]);
-        printf(" -> ");
-
-        setOutput(i);
-
-        for (j = 0; j < num_output_nodes; j++)
-            printf("%f-", out[num_layers-1][j]);
-        printf("\n");
-        }
-}
-
-void initWeight() {
+void init_weights(void) 
+{
     int l, j, k;
 
     /* Assign each weight a number between -0.5 and +0.5 */
     printf("Initialising weights...\n");
     fflush(stdout);
     srand(time(NULL));
-    for (l = 1; l < num_layers; ++l)
+    for (l = 1; l < LAYERS; ++l)
         for (j = 0; j < topology[l]; ++j)
             for (k = 0; k < topology[l-1]; ++k)
                 wgt[l][j][k] = ((double)rand() / (double)RAND_MAX) - 0.5;
@@ -220,7 +83,8 @@ void initWeight() {
 /* Sets the output value of each node according to the current network weights
  * and the input vector ('iv') belonging to the 't'th element in the training
  * set. */
-void setOutput(int t) {
+void setOutput(int t) 
+{
     int j, l;
     float o;
     float *iv;
@@ -229,7 +93,7 @@ void setOutput(int t) {
     for (j = 0; j < topology[0]; ++j)
         out[0][j] = *iv++;
 
-    for (l = 1; l < num_layers; ++l) {
+    for (l = 1; l < LAYERS; ++l) {
         for (j = 0; j < topology[l]; ++j) {
             o = dotprod(wgt[l][j], out[l-1], topology[l-1]);
             out[l][j] = sigmoid(o);
@@ -237,22 +101,25 @@ void setOutput(int t) {
     }
 }
 
-void setErrorTerm(int i) {
+void setErrorTerm(int i) 
+{
     int n;
     float *o, *t, *e;
 
     /* error term for output nodes */
-    n = num_output_nodes;
-    e = err[num_layers-1];
-    o = out[num_layers-1];
+    n = NUM_OUTPUT_NODES;
+    e = err[LAYERS-1];
+    o = out[LAYERS-1];
     t = trainOut[i];
-    while (n-- > 0) 
-        *e++ = *o * (1.0 - *o) * (*t++ - *o++);
+    while (n-- > 0) { 
+        *e++ = *o * (1.0 - *o) * (*t++ - *o);
+        o++;
+        }
 
     int l, j;
     float er;
     /* set error terms for hidden nodes */
-    for (l = num_layers-2; l >= 0; --l) {
+    for (l = LAYERS-2; l >= 0; --l) {
         o = out[l];
         e = err[l];
         for (j = 0; j < topology[l]; j++) {
@@ -269,11 +136,12 @@ void setErrorTerm(int i) {
      }
 }
 
-void setWeight(void) {
+void setWeight(void) 
+{
     int l, i, n;
     float *w, *o, f;
 
-    for (l = 1; l < num_layers; ++l)
+    for (l = 1; l < LAYERS; ++l)
         for (i = 0; i < topology[l]; ++i) {
             w = wgt[l][i];
             o = out[l-1];
@@ -284,15 +152,16 @@ void setWeight(void) {
         }
 }
 
-float error(int i) {
+float error(int i) 
+{
 
     int j;
     float e, *o, *t;
 
-    o = out[num_layers-1];
+    o = out[LAYERS-1];
     t = trainOut[i];
 
-    e = 0, j = num_output_nodes;
+    e = 0, j = NUM_OUTPUT_NODES;
     while (j-- > 0)
         e += pow((*t++ - *o++), 2);
 
@@ -300,14 +169,16 @@ float error(int i) {
 }
 
 /* Compute the dot product of two n length arrays. */
-float dotprod(float* a, float* b, int n) {
+static float dotprod(float* a, float* b, int n) 
+{
     float s = 0;
     while (n-- > 0)
         s += *a++ * *b++;
     return s;
 }
 
-float sigmoid(float x) {
+static float sigmoid(float x) 
+{
     return 1 / (1 + expf(-x));
 }
 
