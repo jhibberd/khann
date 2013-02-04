@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include "ann.h"
+#include "config/xor.h"
 
 /* XOR */
 int topology[] = {NUM_INPUT_NODES, 4, 4, NUM_OUTPUT_NODES};

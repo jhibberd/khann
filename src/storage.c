@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "ann.h"
+#include "config/xor.h"
 
 extern void load_weights_from_file(void);
 extern void save_weights_to_file(void);

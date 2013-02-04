@@ -2,7 +2,7 @@
    neural network implemented in C. */
 
 #include <Python.h>
-#include "ann.h"
+#include "config/xor.h"
 
 float *eval(float *iv);
 
