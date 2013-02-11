@@ -5,10 +5,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include "config/xor.h"
+#include "config/digit2.h"
 
-/* XOR */
+/* XOR
 int topology[] = {NUM_INPUT_NODES, 4, 4, NUM_OUTPUT_NODES};
+*/
 
 /* Binary Addition
 int topology[] = {NUM_INPUT_NODES, 20, 20, NUM_OUTPUT_NODES};
@@ -18,9 +19,8 @@ int topology[] = {NUM_INPUT_NODES, 20, 20, NUM_OUTPUT_NODES};
 int topology[] = {NUM_INPUT_NODES, 1568, 784, NUM_OUTPUT_NODES};
 */
 
-/* Digit Recogniser (compressed x2)
+/* Digit Recogniser (compressed x2) */
 int topology[] = {NUM_INPUT_NODES, 392, 196, NUM_OUTPUT_NODES};
-*/
 
 float out[LAYERS][MAX_LAYER_SIZE];
 float err[LAYERS][MAX_LAYER_SIZE];

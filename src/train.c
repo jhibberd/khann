@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "config/xor.h"
+#include "config/digit2.h"
 
 extern int topology[];
 extern float out[LAYERS][MAX_LAYER_SIZE];
@@ -23,9 +23,18 @@ static void read_training_set(void);
 static int classified(int i);
 static void test(void);
 
+static void test_classification_rate(void);
+
 main () 
 {
     setbuf(stdout, NULL); /* Disable stdout buffering */
+
+    extern void load_weights_from_file(void);
+    load_weights_from_file();
+    read_training_set();
+    test_classification_rate();
+    return;
+
     read_training_set();
     init_weights();
     train();
@@ -58,6 +67,21 @@ void train(void)
         else 
             ++n;
     } while (e > ERROR_THRESHOLD);
+}
+
+void test_classification_rate(void)
+{
+    int i, c;
+    float *iv;
+    long n = 0;
+
+    c = 0; /* correctly classified */
+    for (i = 0; i < TRAIN_SIZE; ++i) {
+        iv = trainIn[i];
+        set_outputs(iv);
+        c += classified(i);
+    }
+    printf("(%d/%d)\n", c, TRAIN_SIZE);
 }
 
 /* Return whether the 'i'-th element in the trainin set is correctly 
