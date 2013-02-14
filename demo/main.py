@@ -28,7 +28,8 @@ application = tornado.web.Application([
     (r"/", MainHandler),
     (r"/eval", EvalHandler),
 ],
-static_path= os.path.join(os.path.dirname(__file__), "static"))
+debug=True,
+static_path=os.path.join(os.path.dirname(__file__), "static"))
 
 if __name__ == "__main__":
     application.listen(8888)

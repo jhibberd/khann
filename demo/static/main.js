@@ -1,79 +1,72 @@
 
-// Keep everything in anonymous function, called on window load.
 if (window.addEventListener) {
 
 	window.addEventListener('load', function() {
   		var canvas, context, tool;
 
   		function init () {
-    		// Find the canvas element.
+
     		canvas = document.getElementById('imageView');
     		if (!canvas) {
-      			alert('Error: I cannot find the canvas element!');
+      			alert("Can't find canvas element");
       			return;
     		}
-
     		if (!canvas.getContext) {
-      			alert('Error: no canvas.getContext!');
+      			alert("No canvas.getContext!");
       			return;
     		}
-
-    		// Get the 2D canvas context.
     		context = canvas.getContext('2d');
     		if (!context) {
-      			alert('Error: failed to getContext!');
+      			alert("Failed to getContext!");
       			return;
     		}
 
-    		// Pencil tool instance.
     		tool = new tool_pencil();
 
-    		// Attach the mousedown, mousemove and mouseup event listeners.
     		canvas.addEventListener('mousedown', ev_canvas, false);
     		canvas.addEventListener('mousemove', ev_canvas, false);
     		canvas.addEventListener('mouseup',   ev_canvas, false);
-			canvas.addEventListener('mouseout',  on_mouseout, false);
   		}
 
-  		// This painting tool works like a drawing pencil which tracks the mouse 
-  		// movements.
   		function tool_pencil () {
+
     		var tool = this;
     		this.started = false;
+            this.evalTimer = null;
 
     		context.lineWidth = 20;
     		context.lineCap = "round";
 
-    		// This is called when you start holding down the mouse button.
-    		// This starts the pencil drawing.
-    		this.mousedown = function (ev) {
+    		this.mousedown = function(ev) {
         		context.beginPath();
         		context.moveTo(ev._x, ev._y);
         		tool.started = true;
+                if (tool.evalTimer) {
+                    clearTimeout(tool.evalTimer);
+                    tool.evalTimer = null;
+                }
     		};
 
-    		// This function is called every time you move the mouse. Obviously, it only 
-    		// draws if the tool.started state is set to true (when you are holding down 
-    		// the mouse button).
-    		this.mousemove = function (ev) {
+    		this.mousemove = function(ev) {
       			if (tool.started) {
         			context.lineTo(ev._x, ev._y);
         			context.stroke();
       			}
     		};
 
-    		// This is called when you release the mouse button.
-    		this.mouseup = function (ev) {
+    		this.mouseup = function(ev) {
       			if (tool.started) {
         			tool.mousemove(ev);
         			tool.started = false;
+                    tool.evalTimer = setTimeout(evalImage, 2000);
       			}
     		};
   		}
 
-  		// The general-purpose event handler. This function just determines the mouse 
-  		// position relative to the canvas element.
+        // General-purpose event handler to determine the mouse position 
+        // relative to the canvas element
   		function ev_canvas(ev) {
+
     		if (ev.layerX || ev.layerX == 0) { // Firefox
       			ev._x = ev.layerX;
       			ev._y = ev.layerY;
@@ -82,17 +75,19 @@ if (window.addEventListener) {
       			ev._y = ev.offsetY;
     		}
 
-    		// Call the event handler of the tool.
     		var func = tool[ev.type];
     		if (func) {
       			func(ev);
     		}
   		}
 
-		function on_mouseout(ev) {
+        // Convert the image to an input vector compatible with the artificial
+        // neural network on the server
+		function evalImage() {
 
 			// Get image data
-			var imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+			var imageData = 
+                context.getImageData(0, 0, canvas.width, canvas.height);
 			var data = imageData.data;
 
 			// Extract alpha values (there is no color)
@@ -106,6 +101,10 @@ if (window.addEventListener) {
 			var sampleSize = canvas.width / TARGET_SIZE;
 			var result = Array();
 			var ri = 0;
+
+            var get_xy = function(a, w, x, y) {
+                return a[(y * w) + x]
+            }
 
 			for (var y = 0; y < canvas.height; y += sampleSize)
 				for (var x = 0; x < canvas.width; x += sampleSize) {
@@ -131,34 +130,17 @@ if (window.addEventListener) {
 			// To real number between 1 and 0
 			for (var i = 0; i < result.length; i++)
 				result[i] = result[i] / 255;
-
             var iv = result.join();
 
+            // Post to server to evaluation
             $.get('eval?iv='+iv, function(data) {
                 alert(data);
             });
 
-
-			/* Print output
-			for (var i = 0; i < result.length; i += 14) {
-				var line = new Array();
-				for (var j = 0; j < 14; j++) {
-					var x = result[i+j];
-					line[j] = x > 0 ? "x" : " ";
-				}
-				console.log(line);
-			}
-            */
-
-		}
-
-		function get_xy(a, w, x, y) {
-			return a[(y * w) + x]
 		}
 
   		init();
 
-	}, 
-	false); 
+	}, false); 
 }
 
