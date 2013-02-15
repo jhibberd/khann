@@ -3,24 +3,34 @@ import os
 import tornado.ioloop
 import tornado.web
 
+
 class MainHandler(tornado.web.RequestHandler):
+    """Render demo framework."""
+
     def get(self):
         self.render("html/main.html")
 
+
 class EvalHandler(tornado.web.RequestHandler):
+    """Evaluate an image expressed as an input vector using the artificial
+    neural network.
+    """
+
     def get(self):
         iv = self.get_argument("iv").split(",")
         iv = map(float, iv)
         ov = ann.eval(iv)
+        digit = self._pick_strongest(ov)
+        self.write(str(digit))
 
-        win_score = 0
-        win_n = None
-        for n, score in enumerate(ov):
-            if score > win_score:
-                win_n = n
-                win_score = score
+    def _pick_strongest(self, ov):
+        """Return the digit indicated by the strongest value in the output
+        vector.
+        """
+        xs = [(score, d) for d, score in enumerate(ov)]
+        xs.sort()
+        return xs[-1][1]
 
-        self.write(str(win_n))
 
 application = tornado.web.Application([
     (r"/", MainHandler),
