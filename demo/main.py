@@ -11,9 +11,7 @@ class EvalHandler(tornado.web.RequestHandler):
     def get(self):
         iv = self.get_argument("iv").split(",")
         iv = map(float, iv)
-        print "IN", iv
         ov = ann.eval(iv)
-        print "OUT", ov
 
         win_score = 0
         win_n = None
