@@ -23,10 +23,22 @@ if (window.addEventListener) {
 
     		tool = new tool_pencil();
 
+            // Events for pointer-based devices
     		canvas.addEventListener('mousedown', ev_canvas, false);
     		canvas.addEventListener('mousemove', ev_canvas, false);
-    		canvas.addEventListener('mouseup',   ev_canvas, false);
+    		canvas.addEventListener('mouseup', ev_canvas, false);
+
+            // Events for touch-based devices
+    		canvas.addEventListener('touchstart', ev_canvas, false);
+    		canvas.addEventListener('touchmove', ev_canvas, false);
+    		canvas.addEventListener('touchend', ev_canvas, false);
+
             $("#tryAgain").click(clearImage);
+
+            // Prevent elastic scrolling on touch-based device
+            document.body.addEventListener('touchmove', function(event) {
+                event.preventDefault();
+            },  false); 
   		}
 
   		function tool_pencil () {
@@ -47,6 +59,7 @@ if (window.addEventListener) {
                     tool.evalTimer = null;
                 }
     		};
+            this.touchstart = this.mousedown;
 
     		this.mousemove = function(ev) {
       			if (tool.started) {
@@ -54,14 +67,15 @@ if (window.addEventListener) {
         			context.stroke();
       			}
     		};
+            this.touchmove = this.mousemove;
 
     		this.mouseup = function(ev) {
       			if (tool.started) {
-        			tool.mousemove(ev);
         			tool.started = false;
                     tool.evalTimer = setTimeout(evalImage, 2000);
       			}
     		};
+            this.touchend = this.mouseup;
   		}
 
         // General-purpose event handler to determine the mouse position 
@@ -146,7 +160,7 @@ if (window.addEventListener) {
                     7: "seven",
                     8: "eight",
                     9: "nine"
-                    }
+                    };
                 $("#classification").html(words[data.toString()]);
                 $("#calloutBefore").hide();
                 $("#calloutAfter").show();
