@@ -2,7 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="utf-8">
-        <title>Canvas Paint - Example 2</title>
+        <title>Artificial Neural Network trained to recognise numeric digits</title>
         <script type="text/javascript" src="{{ static_url("main.js") }}"></script>
         <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.0/jquery.min.js"></script>
         <style type="text/css">
@@ -13,6 +13,10 @@
             #imageView { 
                 border: 3px solid #333;
                 float: left;
+            }
+            #tryAgain {
+                text-decoration: underline;
+                cursor: pointer;
             }
             body {
                 font-family: 'Helvetica Neue', helvetica, arial, hirakakupro-w3, osaka, 'ms pgothic', sans-serif;
@@ -32,15 +36,21 @@
                 line-height: 26px;
                 margin: 0;
             }
-            div.callout {
-                padding: 15px 30px 40px 15px;
+            .callout {
                 margin-left: 30px;
-                background-color: #eaeaea;
-                width: 500px;
+                width: 540px;
                 float: left;
+            }
+            .callout .box {
+                padding: 15px 30px 40px 15px;
+                background-color: #eaeaea;
+            }
+            .callout img {
+                margin-left: 25px;
             }
             p.desc {
                 margin-top: 30px;
+                width: 880px;
             }
             a {
                 color: #356AA0;
@@ -56,17 +66,21 @@
                 web application.</p>
             </canvas>
             <div class="callout">
-                <h2 id="calloutBefore" style="display: none;">
-                    Draw a number between 0 and 9 in the box &mdash; the
-                    computer will try and figure out which one you drew.
-                </h2>
-                <h2 id="calloutAfter">
-                    You drew the number <b>three</b>! &mdash; <a href="">try again</a>
-                </h2>
+                <div class="box">
+                    <h2 id="calloutBefore">
+                        Draw a number between 0 and 9 in the box &mdash; the
+                        computer will try and figure out which one you drew.
+                    </h2>
+                    <h2 id="calloutAfter" style="display: none;">
+                        You drew the number <b id="classification">three</b>! 
+                        &mdash; <a id="tryAgain">try again</a>
+                    </h2>
+                </div>
+                <img src="{{ static_url("callout.png") }}" />
             </div>
         </div>
         <p class="desc">
-        The Artificial Neural Network was written in C and training on 42,000 already classified digits from Kaggle.
+        The Artificial Neural Network was written in C (<a target="_blank" href="https://github.com/jhibberd/ann-digit/tree/master/src">source code</a>) and based on the theory outlined in <a target="_blank" href="http://www.amazon.com/Machine-Learning-Tom-M-Mitchell/dp/0070428077">"Machine Learning" by Tom M. Mitchell</a>. The original aim was to correctly classify all 42,000 training samples from the <a target="_blank" href="http://www.kaggle.com/c/digit-recognizer">Kaggle "Digit Recogniser" competition</a>. The network consists of 794 nodes and achieved a 99% successful classification rate on the Kaggle training set.
         </p>
     </body>
 </html>

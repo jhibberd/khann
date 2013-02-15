@@ -26,6 +26,7 @@ if (window.addEventListener) {
     		canvas.addEventListener('mousedown', ev_canvas, false);
     		canvas.addEventListener('mousemove', ev_canvas, false);
     		canvas.addEventListener('mouseup',   ev_canvas, false);
+            $("#tryAgain").click(clearImage);
   		}
 
   		function tool_pencil () {
@@ -132,12 +133,32 @@ if (window.addEventListener) {
 				result[i] = result[i] / 255;
             var iv = result.join();
 
-            // Post to server to evaluation
+            // Post to server for evaluation, then display result in UI
             $.get('eval?iv='+iv, function(data) {
-                alert(data);
+                var words = {
+                    0: "zero",
+                    1: "one",
+                    2: "two",
+                    3: "three",
+                    4: "four",
+                    5: "five",
+                    6: "six",
+                    7: "seven",
+                    8: "eight",
+                    9: "nine"
+                    }
+                $("#classification").html(words[data.toString()]);
+                $("#calloutBefore").hide();
+                $("#calloutAfter").show();
             });
 
 		}
+
+        function clearImage() {
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            $("#calloutAfter").hide();
+            $("#calloutBefore").show();
+        }
 
   		init();
 
