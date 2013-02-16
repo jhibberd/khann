@@ -1,67 +1,65 @@
+#include <float.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "config/digit2.h"
+#include "config/binadd.h"
+#include "ann.h"
+
+
+static struct training_set load_training_set(void);
+static void free_training_set(struct training_set *t);
 
 extern int topology[];
 extern float out[LAYERS][MAX_LAYER_SIZE];
 extern float err[LAYERS][MAX_LAYER_SIZE];
 extern float wgt[LAYERS][MAX_LAYER_SIZE][MAX_LAYER_SIZE];
-extern float trainIn[TRAIN_SIZE][NUM_INPUT_NODES];
-extern float trainOut[TRAIN_SIZE][NUM_OUTPUT_NODES];
 
 extern void save_weights_to_file(void);
 extern void init_weights(void);
 extern void set_outputs(float *iv);
 extern void set_weights(void);
-extern float error(int i);
-extern void set_error_terms(int i);
+extern float error(int i, struct training_set *t);
+extern void set_error_terms(int i, struct training_set *t);
 
-static void train(void);
-static void read_training_set(void);
-static int classified(int i);
-static void test(void);
+static void train(struct training_set *t);
+static int classified(int i, struct training_set *t);
+static void test(struct training_set *t);
 
 static void test_classification_rate(void);
 
 main () 
 {
+    struct training_set t;
+
     setbuf(stdout, NULL); /* Disable stdout buffering */
-
-    extern void load_weights_from_file(void);
-    load_weights_from_file();
-    read_training_set();
-    test_classification_rate();
-    return;
-
-    read_training_set();
+    t = load_training_set();
     init_weights();
-    train();
-    test();
+    train(&t);
+    test(&t);
     /* save_weights_to_file(); */
+    free_training_set(&t);
 }
 
-void train(void)
+void train(struct training_set *t)
 {
     int i, c;
-    float e, *iv;
+    float e;
     long n = 0;
 
     printf("Training...\n");
     do {
         e = 0;
         c = 0; /* correctly classified */
-        for (i = 0; i < TRAIN_SIZE; ++i) {
-            iv = trainIn[i];
-            set_outputs(iv);
-            e += error(i);
-            c += classified(i);
-            set_error_terms(i);
+        for (i = 0; i < t->n; ++i) {
+            set_outputs(t->iv[i]);
+            e += error(i, t);
+            c += classified(i, t);
+            set_error_terms(i, t);
             set_weights();
         }
         if (n == DEBUG_THRESHOLD) {
-            printf("%f (%d/%d)\n", e, c, TRAIN_SIZE);
+            printf("%f (%d/%d)\n", e, c, t->n);
             n = 0;
         }
         else 
@@ -69,99 +67,116 @@ void train(void)
     } while (e > ERROR_THRESHOLD);
 }
 
-void test_classification_rate(void)
-{
-    int i, c;
-    float *iv;
-    long n = 0;
-
-    c = 0; /* correctly classified */
-    for (i = 0; i < TRAIN_SIZE; ++i) {
-        iv = trainIn[i];
-        set_outputs(iv);
-        c += classified(i);
-    }
-    printf("(%d/%d)\n", c, TRAIN_SIZE);
-}
-
 /* Return whether the 'i'-th element in the trainin set is correctly 
 classified */
-int classified(int i) 
+int classified(int i, struct training_set *t) 
 {
     int j;
-    float *o, *t;
+    float *o, *tgt;
 
     o = out[LAYERS-1];
-    t = trainOut[i];
+    tgt = t->ov[i];
 
-    j = NUM_OUTPUT_NODES;
+    j = t->size_ov;
     while (j-- > 0)
-        if (*t++ != roundf(*o++))
+        if (*tgt++ != roundf(*o++))
             return 0;
     
     return 1;
 }
 
-/* Read training set from file */
-static void read_training_set(void) 
-{
-    FILE *ptr_file;
-    char buf[10000];
-    char *intkn, *outtkn, *tkn;
-    int i, j;
-
-    printf("Reading training set...\n");
-    i = 0;
-    ptr_file = fopen(TRAIN_FILE, "r");
-    while (fgets(buf, 10000, ptr_file) != NULL) {
-
-        intkn = strtok(buf, ":");
-        outtkn = strtok(NULL, ":");
-    
-        j = 0;
-        tkn = strtok(intkn, ",");
-        do {
-            trainIn[i][j++] = atof(tkn);  
-        } while((tkn = strtok(NULL, ",")) != NULL);
-
-        j = 0;
-        tkn = strtok(outtkn, ",");
-        do {
-            trainOut[i][j++] = atof(tkn);  
-        } while((tkn = strtok(NULL, ",")) != NULL);
-
-        if (i % 1 == 0) {
-            printf("\t%d/%d\n", i, TRAIN_SIZE);
-        }
-
-        ++i;
-    }
-
-    fclose(ptr_file);
-}
-
-static void test() 
+static void test(struct training_set *t) 
 {
     int i, j;
-    float *iv;
 
-    for (i = 0; i < TRAIN_SIZE; ++i) {
+    for (i = 0; i < t->n; ++i) {
 
-        for (j = 0; j < NUM_INPUT_NODES; j++)
-            printf("%.0f-", trainIn[i][j]);
+        for (j = 0; j < t->size_iv; j++)
+            printf("%.0f-", t->iv[i][j]);
         printf(" -> ");
 
-        for (j = 0; j < NUM_OUTPUT_NODES; j++)
-            printf("%.0f-", trainOut[i][j]);
+        for (j = 0; j < t->size_ov; j++)
+            printf("%.0f-", t->ov[i][j]);
         printf(" -> ");
 
-        iv = trainIn[i];
-        set_outputs(iv);
+        set_outputs(t->iv[i]);
 
-        for (j = 0; j < NUM_OUTPUT_NODES; j++)
+        for (j = 0; j < t->size_ov; j++)
             printf("%f-", out[LAYERS-1][j]);
         printf("\n");
 
         }
+}
+
+static struct training_set load_training_set(void)
+{
+    struct training_set t;
+
+    /* Make an unbuffered pass through the training set file to count the 
+     * number of elements */
+    t.n = 0;
+    int ch;
+    FILE *fp = fopen(TRAIN_FILE, "r");
+    while (EOF != (ch = fgetc(fp)))
+        if (ch == '\n')
+            ++t.n; 
+
+    /* Make a pass through the first element to count the size of each input
+     * and output vector */
+    int *n;
+    rewind(fp);
+    t.size_iv = 0;
+    t.size_ov = 0;
+    n = &t.size_iv;
+    while ('\n' != (ch = fgetc(fp)))
+        if (ch == ',')
+            ++*n;
+        else if (ch == ':') {
+            ++*n;
+            n = &t.size_ov;
+        }
+    ++t.size_ov;
+
+    /* Allocate enough memory for an array to hold all input and output vectors
+     * of the training set */
+    int i;
+    t.iv = malloc(t.n * sizeof(float *));
+    t.ov = malloc(t.n * sizeof(float *));
+    for (i = 0; i < t.n; i++) {
+        t.iv[i] = malloc(t.size_iv * sizeof(float));
+        t.ov[i] = malloc(t.size_ov * sizeof(float));
+    }    
+
+    /* Make a second pass through the training set file and load it into both
+     * arrays */
+    char v[DBL_DIG+2]; /* Largest string representation of a float */
+    div_t d;
+    int line_size;
+    rewind(fp);
+    i = 0;
+    line_size = t.size_iv + t.size_ov;
+    while (fscanf(fp, "%[^,:\n]%*c", v) != EOF) {
+        d = div(i, line_size);
+        if (d.rem < t.size_iv)
+            t.iv[d.quot][d.rem] = (float) atof(v);
+        else
+            t.ov[d.quot][d.rem - t.size_iv] = (float) atof(v);
+        ++i;
+    }
+    fclose(fp);
+
+    return t;
+}
+
+/* Free memory dynamically allocated for the training set */
+static void free_training_set(struct training_set *t)
+{
+    int i;
+    for (i = 0; i < t->n; i++) {
+        free(t->iv[i]);
+        free(t->ov[i]);
+    }
+    free(t->iv);
+    free(t->ov);
 }
 

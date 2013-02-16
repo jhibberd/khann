@@ -5,36 +5,35 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include "config/digit2.h"
+#include "config/binadd.h"
+#include "ann.h"
 
 /* XOR
 int topology[] = {NUM_INPUT_NODES, 4, 4, NUM_OUTPUT_NODES};
 */
 
-/* Binary Addition
+/* Binary Addition */
 int topology[] = {NUM_INPUT_NODES, 20, 20, NUM_OUTPUT_NODES};
-*/
 
 /* Digit Recogniser
 int topology[] = {NUM_INPUT_NODES, 1568, 784, NUM_OUTPUT_NODES};
 */
 
-/* Digit Recogniser (compressed x2) */
+/* Digit Recogniser (compressed x2)
 int topology[] = {NUM_INPUT_NODES, 392, 196, NUM_OUTPUT_NODES};
+*/
 
 float out[LAYERS][MAX_LAYER_SIZE];
 float err[LAYERS][MAX_LAYER_SIZE];
 float wgt[LAYERS][MAX_LAYER_SIZE][MAX_LAYER_SIZE];
-float trainIn[TRAIN_SIZE][NUM_INPUT_NODES];
-float trainOut[TRAIN_SIZE][NUM_OUTPUT_NODES];
 
 extern void load_weights_from_file(void);
 
 void init_weights(void);
 void set_outputs(float *iv);
-void set_error_terms(int i);
+void set_error_terms(int i, struct training_set *t);
 void set_weights(void);
-float error(int i);
+float error(int i, struct training_set *t);
 float *eval(float *iv);
 static float dotprod(float* a, float* b, int n);
 static float sigmoid(float x);
@@ -85,18 +84,18 @@ void set_outputs(float *iv)
     }
 }
 
-void set_error_terms(int i) 
+void set_error_terms(int i, struct training_set *t) 
 {
     int n;
-    float *o, *t, *e;
+    float *o, *tgt, *e;
 
     /* error term for output nodes */
-    n = NUM_OUTPUT_NODES;
+    n = t->size_ov;
     e = err[LAYERS-1];
     o = out[LAYERS-1];
-    t = trainOut[i];
+    tgt = t->ov[i];
     while (n-- > 0) { 
-        *e++ = *o * (1.0 - *o) * (*t++ - *o);
+        *e++ = *o * (1.0 - *o) * (*tgt++ - *o);
         o++;
         }
 
@@ -136,18 +135,18 @@ void set_weights(void)
         }
 }
 
-float error(int i) 
+float error(int i, struct training_set *t) 
 {
 
     int j;
-    float e, *o, *t;
+    float e, *o, *tgt;
 
     o = out[LAYERS-1];
-    t = trainOut[i];
+    tgt = t->ov[i];
 
-    e = 0, j = NUM_OUTPUT_NODES;
+    e = 0, j = t->size_ov;
     while (j-- > 0)
-        e += pow((*t++ - *o++), 2);
+        e += pow((*tgt++ - *o++), 2);
 
     return e * 0.5;
 }
