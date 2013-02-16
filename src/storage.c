@@ -2,11 +2,10 @@
 #include <stdlib.h>
 #include "config/digit2.h"
 
-extern void load_weights_from_file(void);
-extern void save_weights_to_file(void);
+void load_weights_from_file(void);
+void save_weights_to_file(void);
 
 extern int topology[];
-extern float wgt[LAYERS][MAX_LAYER_SIZE][MAX_LAYER_SIZE];
 
 void save_weights_to_file(void) 
 {
