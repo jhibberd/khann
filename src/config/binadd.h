@@ -4,5 +4,5 @@
 #define LAYERS 4
 #define MAX_LAYER_SIZE 20
 #define TRAIN_FILE "../train/binadd.train"
-#define NUM_INPUT_NODES 10
 #define NUM_OUTPUT_NODES 6
+#define TOPOLOGY {10, 20, 20, 6}

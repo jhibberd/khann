@@ -4,5 +4,5 @@
 #define LAYERS 4
 #define MAX_LAYER_SIZE 4
 #define TRAIN_FILE "../train/xor.train"
-#define NUM_INPUT_NODES 2
 #define NUM_OUTPUT_NODES 1
+#define TOPOLOGY {2, 4, 4, 1}

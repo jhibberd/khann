@@ -4,5 +4,5 @@
 #define LAYERS 4
 #define MAX_LAYER_SIZE 1568
 #define TRAIN_FILE "../train/digit.train"
-#define NUM_INPUT_NODES 784
 #define NUM_OUTPUT_NODES 10
+#define TOPOLOGY {784, 1568, 784, 10}
