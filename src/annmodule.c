@@ -1,5 +1,5 @@
 /* Python extension module for evaluating input vectors using an artificial
-   neural network implemented in C. */
+ * neural network implemented in C. */
 
 #include <Python.h>
 #include "config/digit2.h"

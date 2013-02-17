@@ -6,23 +6,21 @@
 #include "config/binadd.h"
 #include "ann.h"
 
-/* TODO(jhibberd) Get rid of this. Expanding it out is clearer */
-#define final_output(n) getarr2d(&(n)->output, (n)->layers -1, 0)
+#define sigmoid(x) 1 / (1 + expf(-(x)))
+#define LEARNING_RATE 0.5
 
 static struct training_set load_training_set(void);
 static void free_training_set(struct training_set *t);
 static struct network mknetwork(void); 
 static void free_network(struct network *n);
-static float dotprod(float* a, float* b, int n);
-static float sigmoid(float x);
 
-const int topology[4] = TOPOLOGY;
+const int topology[] = TOPOLOGY;
 
 /* void save_weights_to_file(void); */
 void set_outputs(struct network *n, float *iv);
 void set_weights(struct network *n);
 float error(struct network *n, struct training_set *t, int i);
-void set_error_terms(struct network *n, struct training_set *t, int i);
+void set_error_terms(struct network *n, struct training_set *t, int ti);
 
 static void train(struct training_set *t, struct network *n);
 static int classified(struct network *n, struct training_set *t, int i);
@@ -80,73 +78,73 @@ static struct network mknetwork(void)
 /* TODO(jhibberd) Topology to be a property of the network struct */
 void set_outputs(struct network *n, float *iv) 
 {
-    /* TODO(jhibberd) Replace 'j' with 'i', the default iterator */
-    int j, l;
-    float o, *os, *ws;
-   
+    int i, j;
+
     /* Set first layer of output nodes to value of input vector */ 
-    for (j = 0; j < topology[0]; ++j)
-        *getarr2d(&n->output, 0, j) = *iv++;
+    for (i = 0; i < topology[0]; ++i)
+        *getarr2d(&n->output, 0, i) = *iv++;
 
     /* Recursively set the output values of all downstream nodes, using the
      * current weight values */
-    for (l = 1; l < n->layers; ++l)
-        for (j = 0; j < topology[l]; ++j) {
-            ws = getarr3d(&n->weight, l, j, 0);
-            os = getarr2d(&n->output, l-1, 0);
-            o = dotprod(ws, os, topology[l-1]);
-            *getarr2d(&n->output, l, j) = sigmoid(o);
+    for (i = 1; i < n->layers; ++i)
+        for (j = 0; j < topology[i]; ++j) {
+
+            float dp = 0, *pw, *po;
+            int c;
+
+            pw = getarr3d(&n->weight, i, j, 0);
+            po = getarr2d(&n->output, i-1, 0);
+            c = topology[i-1];
+            while (c-- > 0)
+                dp += *pw++ * *po++;
+
+            *getarr2d(&n->output, i, j) = sigmoid(dp);
         } 
 }
 
 /* TODO(jhibberd) Add a doc string to each function */
 /* TODO(jhibberd) Mark all functions as 'static' that are internal to this
  * translation unit */
-void set_error_terms(struct network *n, struct training_set *t, int i) 
+void set_error_terms(struct network *n, struct training_set *t, int ti) 
 {
-    int x;
-    float *o, *tgt, *e;
+    int i, j;
+    float *o, *e;
 
-    /* error term for output nodes */
-    x = t->size_ov;
+    /* Set the error terms (e) for the final output nodes (o), based on the 
+     * expected values (z) in the training set (t) */
+    float *z;
+    i = t->size_ov;
     e = getarr2d(&n->error, n->layers -1, 0);
-    o = final_output(n);
-    tgt = t->ov[i];
-    while (x-- > 0) { 
-        *e++ = *o * (1.0 - *o) * (*tgt++ - *o);
-        o++;
+    o = getarr2d(&n->output, n->layers -1, 0);
+    z = t->ov[ti];
+    while (i-- > 0) { 
+        *e++ = *o * (1.0 - *o) * (*z++ - *o);
+        ++o;
         }
 
-    int l, j;
-    float er;
-    /* set error terms for hidden nodes */
-    for (l = n->layers -2; l >= 0; --l) {
-        o = getarr2d(&n->output, l, 0);
-        e = getarr2d(&n->error, l, 0);
-        for (j = 0; j < topology[l]; j++) {
+    /* Propagate the error term backwards through the network. This can be
+     * loosely interpreted as distributing the error across all nodes based
+     * on how "responsible" each node is for the error. */
+    for (i = n->layers -2; i >= 0; --i) {
+        o = getarr2d(&n->output, i, 0);
+        e = getarr2d(&n->error, i, 0);
+        for (j = 0; j < topology[i]; ++j) {
 
-            /* TODO(jhibberd) This is complex and requires building another
-             * array to try and preserve the use of dotprod. Rewrite using
-             * the internals of dotprod and avoid need for new array. Also if
-             * dotprod is only used in one other place just inline the code
-             * and do away with the function */
             int k;
-            float ws[topology[l+1]], w;
-            for (k = 0; k < topology[l+1]; ++k) {
-                w = *getarr3d(&n->weight, l+1, k, j);
-                ws[k] = w;
-            }
+            float dp = 0, w, *e2;
             
-            float *err = getarr2d(&n->error, l+1, 0);
-            er = dotprod(ws, err, topology[l+1]);
-            *e++ = *o * (1.0 - *o) * er;
-            o++;
+            e2 = getarr2d(&n->error, i+1, 0);
+            for (k = 0; k < topology[i+1]; ++k) {
+                w = *getarr3d(&n->weight, i+1, k, j);
+                dp += w * *e2++;
+            }
+
+            *e++ = *o * (1.0 - *o) * dp;
+            ++o;
         }
-     }
+    }
 }
 
-/* TODO(jhibberd) Make LEARNING_RATE global define */
-/* TODO(jhibberd) Remove project-specific defines no longer needed */
 void set_weights(struct network *n) 
 {
     int l, i, x;
@@ -169,7 +167,7 @@ float error(struct network *n, struct training_set *t, int i)
     int j;
     float e, *o, *tgt;
 
-    o = final_output(n);
+    o = getarr2d(&n->output, n->layers -1, 0);
     tgt = t->ov[i];
 
     e = 0, j = t->size_ov;
@@ -212,7 +210,7 @@ int classified(struct network *n, struct training_set *t, int i)
     int j;
     float *o, *tgt;
 
-    o = final_output(n);
+    o = getarr2d(&n->output, n->layers -1, 0);
     tgt = t->ov[i];
 
     j = t->size_ov;
@@ -223,6 +221,7 @@ int classified(struct network *n, struct training_set *t, int i)
     return 1;
 }
 
+/* TODO(jhibberd) Better function name */
 static void test(struct training_set *t, struct network *n) 
 {
     int i, j;
@@ -348,20 +347,5 @@ struct arr2d mkarr2d(int x, int y)
     a.dx = x;
     a.dy = y;
     return a;
-}
-
-/* Compute the dot product of two n length arrays. */
-static float dotprod(float* a, float* b, int n) 
-{
-    float s = 0;
-    while (n-- > 0)
-        s += *a++ * *b++;
-    return s;
-}
-
-/* TODO(jhibberd) Macro */
-static float sigmoid(float x) 
-{
-    return 1 / (1 + expf(-x));
 }
 
