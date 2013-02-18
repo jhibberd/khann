@@ -27,10 +27,37 @@ struct network {
     int layers;             /* Number of network layers */
 };
 
+/* Define how the weights in a network are initialised */
+typedef enum {
+    RAND_WEIGHTS,
+    LOAD_WEIGHTS
+} weight_mode;
+
 /* Macros for setting and getting values in 2 and 3 dimensional arrays */
 #define getarr3d(a, x, y, z) \
     &(a)->arr[((x) * (a)->dy * (a)->dz) + ((y) * (a)->dz) + (z)]
 #define getarr2d(a, x, y) &(a)->arr[((x) * (a)->dy) + (y)]
 
-struct arr3d mkarr3d(int x, int y, int z);
-struct arr2d mkarr2d(int x, int y);
+#define sigmoid(x) 1 / (1 + expf(-x))
+#define LEARNING_RATE 0.5
+
+void train_network(void);
+void validate_network(void);
+
+static struct arr3d mkarr3d(int x, int y, int z);
+static struct arr2d mkarr2d(int x, int y);
+static struct training_set load_training_set(void);
+static void free_training_set(struct training_set *t);
+static struct network mknetwork(weight_mode wm); 
+static void free_network(struct network *n);
+static void load_weights(struct network *n);
+static void save_weights(struct network *n);
+static void set_outputs(struct network *n, float *iv);
+static void set_weights(struct network *n);
+static float error(struct network *n, struct training_set *t, int i);
+static void set_error_terms(struct network *n, struct training_set *t, int ti);
+static void train(struct training_set *t, struct network *n);
+static int classified(struct network *n, struct training_set *t, int i);
+static void test(struct training_set *t, struct network *n);
+static void rand_weights(struct network *n);
+

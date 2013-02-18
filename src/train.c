@@ -6,42 +6,48 @@
 #include "config/binadd.h"
 #include "ann.h"
 
-#define sigmoid(x) 1 / (1 + expf(-(x)))
-#define LEARNING_RATE 0.5
+static const int topology[] = TOPOLOGY;
 
-static struct training_set load_training_set(void);
-static void free_training_set(struct training_set *t);
-static struct network mknetwork(void); 
-static void free_network(struct network *n);
-
-const int topology[] = TOPOLOGY;
-
-/* void save_weights_to_file(void); */
-void set_outputs(struct network *n, float *iv);
-void set_weights(struct network *n);
-float error(struct network *n, struct training_set *t, int i);
-void set_error_terms(struct network *n, struct training_set *t, int ti);
-
-static void train(struct training_set *t, struct network *n);
-static int classified(struct network *n, struct training_set *t, int i);
-static void test(struct training_set *t, struct network *n);
-
+/* TODO(jhibberd) Print to stderr then we don't need to worry about unbuffering
+ * stdout */
 main () 
+{
+    validate_network();
+}
+
+/* Learn weights that classify the training set with an acceptable level of
+ * success */
+void train_network(void)
 {
     struct training_set t;
     struct network n;
 
     setbuf(stdout, NULL);
     t = load_training_set();
-    n = mknetwork();
+    n = mknetwork(RAND_WEIGHTS);
     train(&t, &n);
     test(&t, &n);
-    /* save_weights_to_file(); */
+    save_weights(&n);
     free_training_set(&t);
     free_network(&n);
 }
 
-static struct network mknetwork(void) 
+/* Output the degree to which the saved weights correctly classify the 
+ * training set */
+void validate_network(void)
+{
+    struct training_set t;
+    struct network n;
+
+    setbuf(stdout, NULL);
+    t = load_training_set();
+    n = mknetwork(LOAD_WEIGHTS);
+    test(&t, &n);
+    free_training_set(&t);
+    free_network(&n);
+}
+
+static struct network mknetwork(weight_mode wm) 
 {
     struct network n;
     int i, max_layer_size;
@@ -60,23 +66,38 @@ static struct network mknetwork(void)
     n.error =   mkarr2d(n.layers, max_layer_size); 
     n.weight =  mkarr3d(n.layers, max_layer_size, max_layer_size);
 
-    /* Assign random weights (between -0.5 and +0.5) to the network */
-    int l, j, k;
-    float w;
-    printf("Initialising weights...\n");
-    srand(time(NULL));
-    for (l = 1; l < n.layers; ++l)
-        for (j = 0; j < topology[l]; ++j)
-            for (k = 0; k < topology[l-1]; ++k) {
-                w = ((double)rand() / (double)RAND_MAX) - 0.5;
-                *getarr3d(&n.weight, l, j, k) = w;
-            }
-    
+    /* Set weights, either by randomly assigning values if the network is 
+     * being trained, or by loading values if the network has already been
+     * trained */
+    switch (wm) {
+        case RAND_WEIGHTS:
+            rand_weights(&n);
+            break;
+        case LOAD_WEIGHTS:
+            load_weights(&n);
+            break;
+    }
+
     return n;
 }
 
-/* TODO(jhibberd) Topology to be a property of the network struct */
-void set_outputs(struct network *n, float *iv) 
+/* Assign random weights (between -0.5 and +0.5) to the network */
+static void rand_weights(struct network *n)
+{
+    int i, j, k;
+    float w;
+
+    /*srand(time(NULL));*/
+    srand(13);
+    for (i = 1; i < n->layers; ++i)
+        for (j = 0; j < topology[i]; ++j)
+            for (k = 0; k < topology[i-1]; ++k) {
+                w = ((double)rand() / (double)RAND_MAX) - 0.5;
+                *getarr3d(&n->weight, i, j, k) = w;
+            }
+}
+
+static void set_outputs(struct network *n, float *iv) 
 {
     int i, j;
 
@@ -105,7 +126,7 @@ void set_outputs(struct network *n, float *iv)
 /* TODO(jhibberd) Add a doc string to each function */
 /* TODO(jhibberd) Mark all functions as 'static' that are internal to this
  * translation unit */
-void set_error_terms(struct network *n, struct training_set *t, int ti) 
+static void set_error_terms(struct network *n, struct training_set *t, int ti) 
 {
     int i, j;
     float *o, *e;
@@ -145,7 +166,7 @@ void set_error_terms(struct network *n, struct training_set *t, int ti)
     }
 }
 
-void set_weights(struct network *n) 
+static void set_weights(struct network *n) 
 {
     int l, i, x;
     float *w, *o, f;
@@ -162,7 +183,7 @@ void set_weights(struct network *n)
 }
 
 /* TODO(jhibberd) Better function name */
-float error(struct network *n, struct training_set *t, int i) 
+static float error(struct network *n, struct training_set *t, int i) 
 {
     int j;
     float e, *o, *tgt;
@@ -177,7 +198,7 @@ float error(struct network *n, struct training_set *t, int i)
     return e * 0.5;
 }
 
-void train(struct training_set *t, struct network *n)
+static void train(struct training_set *t, struct network *n)
 {
     int i, c;
     float e;
@@ -205,7 +226,7 @@ void train(struct training_set *t, struct network *n)
     } while (e > ERROR_THRESHOLD);
 }
 
-int classified(struct network *n, struct training_set *t, int i) 
+static int classified(struct network *n, struct training_set *t, int i) 
 {
     int j;
     float *o, *tgt;
@@ -256,7 +277,7 @@ static struct training_set load_training_set(void)
      * number of elements */
     t.n = 0;
     int ch;
-    FILE *fp = fopen(TRAIN_FILE, "r");
+    FILE *fp = fopen("data/" DATA_KEY ".training", "r");
     while (EOF != (ch = fgetc(fp)))
         if (ch == '\n')
             ++t.n; 
@@ -329,7 +350,7 @@ static void free_network(struct network *n)
 }
 
 /* Construct (and allocate memory for) a 3D array */
-struct arr3d mkarr3d(int x, int y, int z)
+static struct arr3d mkarr3d(int x, int y, int z)
 {
     struct arr3d a;
     a.arr = malloc(x * y * z * sizeof(float));
@@ -340,12 +361,54 @@ struct arr3d mkarr3d(int x, int y, int z)
 }
 
 /* Construct (and allocate memory for) a 2D array */
-struct arr2d mkarr2d(int x, int y)
+static struct arr2d mkarr2d(int x, int y)
 {
     struct arr2d a;
     a.arr = malloc(x * y * sizeof(float));
     a.dx = x;
     a.dy = y;
     return a;
+}
+
+static void save_weights(struct network *n) 
+{
+    printf("Saving weights...\n");
+    fflush(stdout);
+
+    int i, j, k;
+    float x;
+    FILE *fp;
+
+    fp = fopen("data/" DATA_KEY ".weights", "w");
+
+    for (i = 1; i < n->layers; ++i)
+        for (j = 0; j < topology[i]; ++j)
+            for (k = 0; k < topology[i-1]; ++k) {
+                x = *getarr3d(&n->weight, i, j, k);
+                fprintf(fp, "%f,", x);
+            }
+
+    fclose(fp);
+}
+
+static void load_weights(struct network *n) 
+{
+    int i, j, k;
+    float x;
+    FILE *fp;
+
+    fp = fopen("data/" DATA_KEY ".weights", "r");
+
+    for (i = 1; i < n->layers; ++i)
+        for (j = 0; j < topology[i]; ++j)
+            for (k = 0; k < topology[i-1]; ++k) {
+                if (fscanf(fp, "%f,", &x) != 1) {
+                    printf("%s", "Error loading weights");
+                    exit(1);
+                }
+                *getarr3d(&n->weight, i, j, k) = x;
+            }
+
+    fclose(fp);
 }
 
