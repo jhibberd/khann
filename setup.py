@@ -13,7 +13,7 @@ from distutils.core import setup, Extension
 
 mod = Extension(
     "ann",
-    sources=["src/annmodule.c", "src/ann.c", "src/storage.c"])
+    sources=["src/annmodule.c", "src/ann.c"])
 
 setup(
     name="ArtificialNeuralNetwork",

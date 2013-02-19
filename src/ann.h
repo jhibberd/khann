@@ -40,24 +40,26 @@ typedef enum {
 
 #define sigmoid(x) 1 / (1 + expf(-x))
 #define LEARNING_RATE 0.5
+#define TEST_SAMPLE_SIZE 10
 
+float *eval(float *iv);
 void train_network(void);
 void validate_network(void);
 
-static struct arr3d mkarr3d(int x, int y, int z);
 static struct arr2d mkarr2d(int x, int y);
-static struct training_set load_training_set(void);
-static void free_training_set(struct training_set *t);
-static struct network mknetwork(weight_mode wm); 
+static struct arr3d mkarr3d(int x, int y, int z);
+static int did_classify(struct network *n, struct training_set *t, int ti);
 static void free_network(struct network *n);
+static void free_training_set(struct training_set *t);
+static struct training_set load_training_set(void);
 static void load_weights(struct network *n);
+static struct network mknetwork(weight_mode wm); 
+static void rand_weights(struct network *n);
 static void save_weights(struct network *n);
+static void set_error_terms(struct network *n, struct training_set *t, int ti);
 static void set_outputs(struct network *n, float *iv);
 static void set_weights(struct network *n);
-static float error(struct network *n, struct training_set *t, int i);
-static void set_error_terms(struct network *n, struct training_set *t, int ti);
+static void test_weights(struct training_set *t, struct network *n);
 static void train(struct training_set *t, struct network *n);
-static int classified(struct network *n, struct training_set *t, int i);
-static void test(struct training_set *t, struct network *n);
-static void rand_weights(struct network *n);
+static float training_error(struct network *n, struct training_set *t, int ti);
 
