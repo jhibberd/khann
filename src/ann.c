@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include "config/binadd.h"
+#include "config/xor.h"
 #include "ann.h"
 
 static const int topology[] = TOPOLOGY;
@@ -41,7 +41,7 @@ void validate_network(void)
 /* Evaluate an input vector using a network with pre-learnt weights. The return 
  * value is the network's output vector. This function is used by the python
  * extension module. */
-float *eval(float *iv) 
+struct eval_res eval(float *iv) 
 {
     /* Lazily initialise the network, but once loaded persist across calls in 
      * static storage */
@@ -52,10 +52,15 @@ float *eval(float *iv)
         loaded = 1;
     }
 
+    struct eval_res res;
     set_outputs(&n, iv);
-    return getarr2d(&n.output, n.layers -1, 0);
+    res.ov = getarr2d(&n.output, n.layers -1, 0);
+    res.n = topology[n.layers -1];
+    return res;
 }
 
+/* Construct a network, either with random weights or weights loaded from
+ * a file */
 static struct network mknetwork(weight_mode wm) 
 {
     struct network n;
@@ -96,9 +101,7 @@ static void rand_weights(struct network *n)
     int i, j, k;
     float w;
 
-    /* TODO(jhibberd) Revert */
-    /*srand(time(NULL));*/
-    srand(13);
+    srand(time(NULL));
     for (i = 1; i < n->layers; ++i)
         for (j = 0; j < topology[i]; ++j)
             for (k = 0; k < topology[i-1]; ++k) {
@@ -107,6 +110,8 @@ static void rand_weights(struct network *n)
             }
 }
 
+/* Load an input vector into the network then recursively set all output node
+ * values */
 static void set_outputs(struct network *n, float *iv) 
 {
     int i, j;
@@ -133,7 +138,9 @@ static void set_outputs(struct network *n, float *iv)
         } 
 }
 
-/* TODO(jhibberd) Add a doc string to each function */
+/* Working backwards through the network set the error term value for each
+ * node based on the difference between the actual network output and the
+ * expected network output (from the training set) */
 static void set_error_terms(struct network *n, struct training_set *t, int ti) 
 {
     int i, j;
@@ -174,18 +181,20 @@ static void set_error_terms(struct network *n, struct training_set *t, int ti)
     }
 }
 
+/* Adjust the weight values of all network nodes based on error term and output
+ * values */
 static void set_weights(struct network *n) 
 {
-    int l, i, x;
+    int i, j, c;
     float *w, *o, f;
 
-    for (l = 1; l < n->layers; ++l)
-        for (i = 0; i < topology[l]; ++i) {
-            w = getarr3d(&n->weight, l, i, 0);
-            o = getarr2d(&n->output, l-1, 0); 
-            f = LEARNING_RATE * *getarr2d(&n->error, l, i);
-            x = topology[l-1];
-            while (x-- > 0)
+    for (i = 1; i < n->layers; ++i)
+        for (j = 0; j < topology[i]; ++j) {
+            w = getarr3d(&n->weight, i, j, 0);
+            o = getarr2d(&n->output, i-1, 0); 
+            f = LEARNING_RATE * *getarr2d(&n->error, i, j);
+            c = topology[i-1];
+            while (c-- > 0)
                 *w++ += f * *o++;
         }
 }
@@ -300,6 +309,7 @@ static void test_weights(struct training_set *t, struct network *n)
     }
 }
 
+/* Load the training set from file into memory */
 static struct training_set load_training_set(void)
 {
     struct training_set t;

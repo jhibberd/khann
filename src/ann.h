@@ -27,6 +27,11 @@ struct network {
     int layers;             /* Number of network layers */
 };
 
+struct eval_res {
+    float *ov;              /* Pointer to output vector */
+    int n;                  /* Size of output vector */
+};
+
 /* Define how the weights in a network are initialised */
 typedef enum {
     RAND_WEIGHTS,
@@ -42,7 +47,7 @@ typedef enum {
 #define LEARNING_RATE 0.5
 #define TEST_SAMPLE_SIZE 10
 
-float *eval(float *iv);
+struct eval_res eval(float *iv);
 void train_network(void);
 void validate_network(void);
 

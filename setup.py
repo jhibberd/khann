@@ -1,9 +1,6 @@
 """Utility script to compile artificial neural network C program as python
 extension module.
 
-Usage:
-    python setup.py build
-
 See:
     http://docs.python.org/2/extending/building.html
 
@@ -11,9 +8,10 @@ See:
 
 from distutils.core import setup, Extension
 
+
 mod = Extension(
     "ann",
-    sources=["src/annmodule.c", "src/ann.c"])
+    sources=["src/ann.c", "src/annmodule.c"])
 
 setup(
     name="ArtificialNeuralNetwork",
