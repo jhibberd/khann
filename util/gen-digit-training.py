@@ -72,7 +72,7 @@ def fmt(ln):
     ln = ln.split(",")
 
     i = map(lambda x: float(x) / 255, ln[1:])
-    i = compress(i)
+    #i = compress(i)
     i = map(str, i)
 
     o = [0] * 10
@@ -81,9 +81,9 @@ def fmt(ln):
 
     return ','.join(i) + ":" + ','.join(o)
 
-with open("../train/digit.2.train", "w") as o:
+with open("../data/digit.training", "w") as o:
     skipped_header = False
-    for ln in open("../train/digit.train.csv"): 
+    for ln in open("../data/digit.training.csv"): 
         if not skipped_header:
             skipped_header = True
             continue

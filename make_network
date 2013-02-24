@@ -1,6 +1,6 @@
 #!/bin/bash
 set -ex
 cd src
-gcc -o network main.c ann.c -lm
+gcc -o network main.c ann.c -lm -lrt
 cd ..
 mv src/network .

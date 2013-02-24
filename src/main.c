@@ -12,5 +12,8 @@ main(int argx, char **argv)
         case 'v':
             validate_network();
             break;
+        case 's':
+            time_network();
+            break;
     }
 }

@@ -3,7 +3,7 @@
  */
 
 #include <Python.h>
-#include "config/xor.h"
+#include "config/digit.h"
 
 struct eval_res {
     float *ov;              /* Pointer to output vector */

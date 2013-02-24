@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include "config/xor.h"
+#include "config/digit.h"
 #include "ann.h"
 
 static const int topology[] = TOPOLOGY;
@@ -34,6 +34,19 @@ void validate_network(void)
     t = load_training_set();
     n = mknetwork(LOAD_WEIGHTS);
     test_weights(&t, &n);
+    free_training_set(&t);
+    free_network(&n);
+}
+
+/* Time how long it takes to test one training case in the network */
+void time_network(void)
+{
+    struct training_set t;
+    struct network n;
+
+    t = load_training_set();
+    n = mknetwork(RAND_WEIGHTS);
+    time_train(&t, &n);
     free_training_set(&t);
     free_network(&n);
 }
@@ -250,6 +263,33 @@ static void train(struct training_set *t, struct network *n)
             ++it;
 
     } while ((err / t->n) > ERROR_THRESHOLD);
+}
+
+/* Time how long it takes on average to train the network using a single
+ * training case */
+static void time_train(struct training_set *t, struct network *n)
+{
+    const int test_size = 1000;
+    int i, dt;
+    float per_tc;
+    struct timespec tm_before, tm_after;
+
+    fprintf(stderr, "Testing network training time:\n");
+
+    clock_gettime(CLOCK_MONOTONIC, &tm_before); 
+    for (i = 0; i < test_size; ++i) {
+        set_outputs(n, t->iv[i]);
+        training_error(n, t, i);
+        set_error_terms(n, t, i);
+        set_weights(n);
+    }
+    clock_gettime(CLOCK_MONOTONIC, &tm_after);
+
+    dt = (int) (tm_after.tv_sec - tm_before.tv_sec);
+    per_tc = ((float) dt) / ((float) test_size);
+    fprintf(stderr, "\t%f seconds(s) per training case\n", per_tc);
+    fprintf(stderr, "\t%f seconds(s) for training set (%i cases)\n", 
+            per_tc * t->n, t->n);
 }
 
 /* Return whether the network produced an output vector (o), that when rounded,
