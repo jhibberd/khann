@@ -2,6 +2,7 @@
 numbers (0-31) and their binary solution.
 """
 
+from pymongo import MongoClient
 from itertools import product
 
 
@@ -19,22 +20,29 @@ def to_bin(solutions):
         x = bin(x)[2:]
         x = list(x)
         x = (['0'] * (w-len(x))) + x
+        x = map(float, x)
         return x
 
     for a, b, c in solutions:
         yield bin_array(a, 5) + bin_array(b, 5), bin_array(c, 6)
 
-def to_str(xs):
-    f = lambda y: ','.join(y)
-    for a, b in xs:
-        yield f(a) + ':' + f(b)
+def to_doc(xs):
+    res = []
+    for x in xs:
+        iv, ov = x
+        res.append({
+            "iv":   iv,
+            "ov":   ov,
+            })
+    return res
 
-def output(xs):
-    print '\n'.join(xs)
+if __name__ == "__main__":
 
-x = gen()
-x = solve(x)
-x = to_bin(x)
-x = to_str(x)
-output(x)
+    coll = MongoClient().khann_binadd.training
+    xs = gen()
+    xs = solve(xs)
+    xs = to_bin(xs) 
+    xs = to_doc(xs)
+    for x in xs:
+        coll.save(x)    
 
