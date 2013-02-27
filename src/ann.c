@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include "config/digit.h"
+#include "config/digit2.h"
 #include "ann.h"
 
 static const int topology[] = TOPOLOGY;
@@ -54,7 +54,7 @@ void time_network(void)
 /* Evaluate an input vector using a network with pre-learnt weights. The return 
  * value is the network's output vector. This function is used by the python
  * extension module. */
-struct eval_res eval(float *iv) 
+struct eval_res eval(double *iv) 
 {
     /* Lazily initialise the network, but once loaded persist across calls in 
      * static storage */
@@ -112,7 +112,7 @@ static struct network mknetwork(weight_mode wm)
 static void rand_weights(struct network *n)
 {
     int i, j, k;
-    float w;
+    double w;
 
     srand(time(NULL));
     for (i = 1; i < n->layers; ++i)
@@ -125,7 +125,7 @@ static void rand_weights(struct network *n)
 
 /* Load an input vector into the network then recursively set all output node
  * values */
-static void set_outputs(struct network *n, float *iv) 
+static void set_outputs(struct network *n, double *iv) 
 {
     int i, j;
 
@@ -138,7 +138,7 @@ static void set_outputs(struct network *n, float *iv)
     for (i = 1; i < n->layers; ++i)
         for (j = 0; j < topology[i]; ++j) {
 
-            float dp = 0, *pw, *po;
+            double dp = 0, *pw, *po;
             int c;
 
             pw = getarr3d(&n->weight, i, j, 0);
@@ -157,11 +157,11 @@ static void set_outputs(struct network *n, float *iv)
 static void set_error_terms(struct network *n, struct training_set *t, int ti) 
 {
     int i, j;
-    float *o, *e;
+    double *o, *e;
 
     /* Set the error terms (e) for the final output nodes (o), based on the 
      * expected values (z) in the training set (t) */
-    float *z;
+    double *z;
     i = t->size_ov;
     e = getarr2d(&n->error, n->layers -1, 0);
     o = getarr2d(&n->output, n->layers -1, 0);
@@ -180,7 +180,7 @@ static void set_error_terms(struct network *n, struct training_set *t, int ti)
         for (j = 0; j < topology[i]; ++j) {
 
             int k;
-            float dp = 0, w, *e2;
+            double dp = 0, w, *e2;
             
             e2 = getarr2d(&n->error, i+1, 0);
             for (k = 0; k < topology[i+1]; ++k) {
@@ -199,7 +199,7 @@ static void set_error_terms(struct network *n, struct training_set *t, int ti)
 static void set_weights(struct network *n) 
 {
     int i, j, c;
-    float *w, *o, f;
+    double *w, *o, f;
 
     for (i = 1; i < n->layers; ++i)
         for (j = 0; j < topology[i]; ++j) {
@@ -214,10 +214,10 @@ static void set_weights(struct network *n)
 
 /* Return the difference between the target output vector (z) and actual output
  * vector (o) as an error score (e) */
-static float training_error(struct network *n, struct training_set *t, int ti) 
+static double training_error(struct network *n, struct training_set *t, int ti) 
 {
     int c;
-    float e, *o, *z;
+    double e, *o, *z;
 
     o = getarr2d(&n->output, n->layers -1, 0);
     z = t->ov[ti];
@@ -235,7 +235,7 @@ static float training_error(struct network *n, struct training_set *t, int ti)
 static void train(struct training_set *t, struct network *n)
 {
     int i, it, cfd;
-    float err;
+    double err;
 
     fprintf(stderr, "Training with training set of %d items\n", t->n);
 
@@ -298,7 +298,7 @@ static void time_train(struct training_set *t, struct network *n)
 static int did_classify(struct network *n, struct training_set *t, int ti) 
 {
     int c;
-    float *o, *z;
+    double *o, *z;
 
     o = getarr2d(&n->output, n->layers -1, 0);
     z = t->ov[ti];
@@ -315,7 +315,7 @@ static int did_classify(struct network *n, struct training_set *t, int ti)
 static void test_weights(struct training_set *t, struct network *n) 
 {
     int i, c, ti, cfd;
-    float o;
+    double o;
 
     /* Print number of correct classifications */
     cfd = 0;
@@ -382,11 +382,11 @@ static struct training_set load_training_set(void)
     /* Allocate enough memory for an array to hold all input and output vectors
      * of the training set */
     int i;
-    t.iv = malloc(t.n * sizeof(float *));
-    t.ov = malloc(t.n * sizeof(float *));
+    t.iv = malloc(t.n * sizeof(double *));
+    t.ov = malloc(t.n * sizeof(double *));
     for (i = 0; i < t.n; i++) {
-        t.iv[i] = malloc(t.size_iv * sizeof(float));
-        t.ov[i] = malloc(t.size_ov * sizeof(float));
+        t.iv[i] = malloc(t.size_iv * sizeof(double));
+        t.ov[i] = malloc(t.size_ov * sizeof(double));
     }    
 
     /* Make a second pass through the training set file and load it into both
@@ -400,9 +400,9 @@ static struct training_set load_training_set(void)
     while (fscanf(fp, "%[^,:\n]%*c", v) != EOF) {
         d = div(i, line_size);
         if (d.rem < t.size_iv)
-            t.iv[d.quot][d.rem] = (float) atof(v);
+            t.iv[d.quot][d.rem] = atof(v);
         else
-            t.ov[d.quot][d.rem - t.size_iv] = (float) atof(v);
+            t.ov[d.quot][d.rem - t.size_iv] = atof(v);
         ++i;
     }
     fclose(fp);
@@ -434,7 +434,7 @@ static void free_network(struct network *n)
 static struct arr3d mkarr3d(int x, int y, int z)
 {
     struct arr3d a;
-    a.arr = malloc(x * y * z * sizeof(float));
+    a.arr = malloc(x * y * z * sizeof(double));
     a.dx = x;
     a.dy = y;
     a.dz = z;
@@ -445,17 +445,19 @@ static struct arr3d mkarr3d(int x, int y, int z)
 static struct arr2d mkarr2d(int x, int y)
 {
     struct arr2d a;
-    a.arr = malloc(x * y * sizeof(float));
+    a.arr = malloc(x * y * sizeof(double));
     a.dx = x;
     a.dy = y;
     return a;
 }
 
+/* TODO(jhibberd) Might we lose weight precision when printing each value?
+ * Perhaps try and explicitly state the number of decimal places? */
 /* Save network weights to a file */
 static void save_weights(struct network *n) 
 {
     int i, j, k;
-    float w;
+    double w;
     FILE *fp;
 
     fp = fopen("data/" DATA_KEY ".weights", "w");
@@ -464,7 +466,7 @@ static void save_weights(struct network *n)
         for (j = 0; j < topology[i]; ++j)
             for (k = 0; k < topology[i-1]; ++k) {
                 w = *getarr3d(&n->weight, i, j, k);
-                fprintf(fp, "%f,", w);
+                fprintf(fp, "%lf,", w);
             }
 
     fclose(fp);
@@ -474,7 +476,7 @@ static void save_weights(struct network *n)
 static void load_weights(struct network *n) 
 {
     int i, j, k;
-    float w;
+    double w;
     FILE *fp;
 
     fp = fopen("data/" DATA_KEY ".weights", "r");
@@ -482,7 +484,7 @@ static void load_weights(struct network *n)
     for (i = 1; i < n->layers; ++i)
         for (j = 0; j < topology[i]; ++j)
             for (k = 0; k < topology[i-1]; ++k) {
-                if (fscanf(fp, "%f,", &w) != 1) {
+                if (fscanf(fp, "%lf,", &w) != 1) {
                     fprintf(stderr, "%s", "Error loading weights");
                     exit(1);
                 }

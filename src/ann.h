@@ -1,20 +1,20 @@
 
 struct arr3d {
-    float *arr;             /* Flattened array */
+    double *arr;            /* Flattened array */
     int dx;                 /* Size of x dimension */
     int dy;                 /* Size of y dimension */
     int dz;                 /* Size of z dimension */
 };
 
 struct arr2d {
-    float *arr;             /* Flattened array */
+    double *arr;            /* Flattened array */
     int dx;                 /* Size of x dimension */
     int dy;                 /* Size of y dimension */
 };
 
 struct training_set {
-    float **iv;             /* List of input vectors */
-    float **ov;             /* List of output vectors */
+    double **iv;            /* List of input vectors */
+    double **ov;            /* List of output vectors */
     int n;                  /* Number of elements in the training set */
     int size_iv;            /* Number of elements in each input vector */
     int size_ov;            /* Number of elements in each output vector */
@@ -28,7 +28,7 @@ struct network {
 };
 
 struct eval_res {
-    float *ov;              /* Pointer to output vector */
+    double *ov;             /* Pointer to output vector */
     int n;                  /* Size of output vector */
 };
 
@@ -47,7 +47,7 @@ typedef enum {
 #define LEARNING_RATE 0.5
 #define TEST_SAMPLE_SIZE 10
 
-struct eval_res eval(float *iv);
+struct eval_res eval(double *iv);
 void time_network(void);
 void train_network(void);
 void validate_network(void);
@@ -63,10 +63,10 @@ static struct network mknetwork(weight_mode wm);
 static void rand_weights(struct network *n);
 static void save_weights(struct network *n);
 static void set_error_terms(struct network *n, struct training_set *t, int ti);
-static void set_outputs(struct network *n, float *iv);
+static void set_outputs(struct network *n, double *iv);
 static void set_weights(struct network *n);
 static void test_weights(struct training_set *t, struct network *n);
 static void time_train(struct training_set *t, struct network *n);
 static void train(struct training_set *t, struct network *n);
-static float training_error(struct network *n, struct training_set *t, int ti);
+static double training_error(struct network *n, struct training_set *t, int ti);
 

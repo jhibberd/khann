@@ -2,7 +2,7 @@
  * http://www.kaggle.com/c/digit-recognizer
  */
 
-#define ERROR_THRESHOLD 54.336063
-#define DEBUG_THRESHOLD 1
+#define ERROR_THRESHOLD 0.0003
+#define DEBUG_THRESHOLD 0
 #define DATA_KEY "digit.2"
 #define TOPOLOGY {196, 392, 196, 10}
