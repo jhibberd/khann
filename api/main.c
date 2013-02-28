@@ -6,6 +6,7 @@
  * files */
 /* TODO(jhibberd) Modify C neural network to read training set from mongoDB,
  * rather than flat file */
+/* Rename "data" dir to "weights" and remove ".weights" from filename */
 
 #define IV_SIZE 3
 #define OV_SIZE 2
