@@ -1,4 +1,4 @@
 #define ERROR_THRESHOLD 0.0013
 #define DEBUG_THRESHOLD 0
 #define DATA_KEY "digit"
-#define TOPOLOGY {784, 1568, 784, 10}
+#define TOPOLOGY {784, 1176, 392, 10}
