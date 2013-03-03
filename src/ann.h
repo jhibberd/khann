@@ -13,11 +13,9 @@ struct arr2d {
 };
 
 struct training_set {
-    double **iv;            /* List of input vectors */
-    double **ov;            /* List of output vectors */
-    int n;                  /* Number of elements in the training set */
-    int size_iv;            /* Number of elements in each input vector */
-    int size_ov;            /* Number of elements in each output vector */
+    struct arr2d iv;        /* List of input vectors */
+    struct arr2d ov;        /* List of output vectors */
+    int n;                  /* Number of cases in the training set */
 };
 
 struct network {

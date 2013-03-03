@@ -30,10 +30,32 @@ int main() {
         }
     }
 
+    bson b[1];
+    
+    bson_init(b);
+
+    bson_append_string(b, "_id", "testy");
+    bson_append_start_array(b, "data");
+    bson_append_double(b, "0", 1.3);
+    bson_append_double(b, "1", 2.3);
+    bson_append_finish_array(b);
+
+    bson_finish(b);
+    mongo_insert(conn, "khann__system.weights", b, NULL);
+
+    bson_destroy(b);
+    mongo_destroy(conn);
+    exit(EXIT_SUCCESS);
+
+
     float *iv, *ov;
 
     iv = (float *)malloc(IV_SIZE * sizeof(float));
     ov = (float *)malloc(OV_SIZE * sizeof(float));
+
+
+    double n = mongo_count(conn, "khann_alphanum", "training", NULL);
+    printf("==%f==", n);
 
     /* Iterate over docs */
     mongo_cursor cursor[1];

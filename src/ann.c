@@ -2,9 +2,9 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
-#include "config/digit2.h"
+#include "config/binadd.h"
 #include "ann.h"
+#include "mongo.h"
 
 static const int topology[] = TOPOLOGY;
 
@@ -38,7 +38,7 @@ void validate_network(void)
     free_network(&n);
 }
 
-/* Time how long it takes to test one training case in the network */
+/* Time how long it takes to test one training case in the network /
 void time_network(void)
 {
     struct training_set t;
@@ -49,7 +49,7 @@ void time_network(void)
     time_train(&t, &n);
     free_training_set(&t);
     free_network(&n);
-}
+}*/
 
 /* Evaluate an input vector using a network with pre-learnt weights. The return 
  * value is the network's output vector. This function is used by the python
@@ -162,10 +162,10 @@ static void set_error_terms(struct network *n, struct training_set *t, int ti)
     /* Set the error terms (e) for the final output nodes (o), based on the 
      * expected values (z) in the training set (t) */
     double *z;
-    i = t->size_ov;
+    i = t->ov.dy;
     e = getarr2d(&n->error, n->layers -1, 0);
     o = getarr2d(&n->output, n->layers -1, 0);
-    z = t->ov[ti];
+    z = getarr2d(&t->ov, ti, 0);
     while (i-- > 0) { 
         *e++ = *o * (1.0 - *o) * (*z++ - *o);
         ++o;
@@ -220,8 +220,8 @@ static double training_error(struct network *n, struct training_set *t, int ti)
     double e, *o, *z;
 
     o = getarr2d(&n->output, n->layers -1, 0);
-    z = t->ov[ti];
-    c = t->size_ov;
+    z = getarr2d(&t->ov, ti, 0);
+    c = t->ov.dy;
     e = 0;
     while (c-- > 0)
         e += pow((*z++ - *o++), 2);
@@ -235,7 +235,7 @@ static double training_error(struct network *n, struct training_set *t, int ti)
 static void train(struct training_set *t, struct network *n)
 {
     int i, it, cfd;
-    double err;
+    double err, *iv;
 
     fprintf(stderr, "Training with training set of %d items\n", t->n);
 
@@ -244,7 +244,8 @@ static void train(struct training_set *t, struct network *n)
         err = 0, cfd = 0;
 
         for (i = 0; i < t->n; ++i) {
-            set_outputs(n, t->iv[i]);
+            iv = getarr2d(&t->iv, i, 0);
+            set_outputs(n, iv);
             err += training_error(n, t, i);
             if (it == DEBUG_THRESHOLD)
                 cfd += did_classify(n, t, i);
@@ -265,8 +266,10 @@ static void train(struct training_set *t, struct network *n)
     } while ((err / t->n) > ERROR_THRESHOLD);
 }
 
+/* TODO(jhibberd) With "--std-c99" various time components no longer exist.
+ * Needs to be rewritten using the standard */
 /* Time how long it takes on average to train the network using a single
- * training case */
+ * training case /
 static void time_train(struct training_set *t, struct network *n)
 {
     const int test_size = 1000;
@@ -291,6 +294,7 @@ static void time_train(struct training_set *t, struct network *n)
     fprintf(stderr, "\t%f seconds(s) for training set (%i cases)\n", 
             per_tc * t->n, t->n);
 }
+*/
 
 /* Return whether the network produced an output vector (o), that when rounded,
  * was identical to the training set (z), whose values are always binary, not
@@ -301,8 +305,8 @@ static int did_classify(struct network *n, struct training_set *t, int ti)
     double *o, *z;
 
     o = getarr2d(&n->output, n->layers -1, 0);
-    z = t->ov[ti];
-    c = t->size_ov;
+    z = getarr2d(&t->ov, ti, 0);
+    c = t->ov.dy;
     while (c-- > 0)
         if (*z++ != roundf(*o++))
             return 0;
@@ -315,12 +319,13 @@ static int did_classify(struct network *n, struct training_set *t, int ti)
 static void test_weights(struct training_set *t, struct network *n) 
 {
     int i, c, ti, cfd;
-    double o;
+    double o, *iv, x;
 
     /* Print number of correct classifications */
     cfd = 0;
     for (i = 0; i < t->n; ++i) {
-        set_outputs(n, t->iv[i]);
+        iv = getarr2d(&t->iv, i, 0);
+        set_outputs(n, iv);
         cfd += did_classify(n, t, i);
     }
     fprintf(stderr, "classified %d/%d\n", cfd, t->n);
@@ -332,15 +337,20 @@ static void test_weights(struct training_set *t, struct network *n)
 
         ti = rand() % t->n; 
 
-        for (i = 0; i < t->size_iv; i++)
-            fprintf(stderr, "%.0f ", t->iv[ti][i]);
+        for (i = 0; i < t->iv.dy; i++) {
+            x = *getarr2d(&t->iv, ti, i);
+            fprintf(stderr, "%.0f ", x);
+            }
         fprintf(stderr, "-> ");
-        for (i = 0; i < t->size_ov; i++)
-            fprintf(stderr, "%.0f ", t->ov[ti][i]);
+        for (i = 0; i < t->ov.dy; i++) {
+            x = *getarr2d(&t->ov, ti, i);
+            fprintf(stderr, "%.0f ", x);
+            }
         fprintf(stderr, "| ");
 
-        set_outputs(n, t->iv[ti]);
-        for (i = 0; i < t->size_ov; i++) {
+        iv = getarr2d(&t->iv, ti, 0);
+        set_outputs(n, iv);
+        for (i = 0; i < t->ov.dy; i++) {
             o = *getarr2d(&n->output, n->layers -1, i);
             fprintf(stderr, "%f ", o);
         }
@@ -354,72 +364,69 @@ static struct training_set load_training_set(void)
 {
     struct training_set t;
 
-    /* Make an unbuffered pass through the training set file to count the 
-     * number of elements */
-    t.n = 0;
-    int ch;
-    FILE *fp = fopen("data/" DATA_KEY ".training", "r");
-    while (EOF != (ch = fgetc(fp)))
-        if (ch == '\n')
-            ++t.n; 
+    /* Establish connection */
+    mongo conn[1];
+    int status = mongo_client(conn, "127.0.0.1", 27017);
+    if (status != MONGO_OK) {
+        printf("Error connecting to database");
+        exit(EXIT_FAILURE);
+    }
 
-    /* Make a pass through the first element to count the size of each input
-     * and output vector */
-    int *n;
-    rewind(fp);
-    t.size_iv = 0;
-    t.size_ov = 0;
-    n = &t.size_iv;
-    while ('\n' != (ch = fgetc(fp)))
-        if (ch == ',')
-            ++*n;
-        else if (ch == ':') {
-            ++*n;
-            n = &t.size_ov;
-        }
-    ++t.size_ov;
+    /* Discover the dimensions of the training set */
+    int size_iv, size_ov, layers;
+    t.n = (int) mongo_count(conn, "khann_" DATA_KEY, "training", NULL);
+    layers = sizeof(topology) / sizeof(int);
+    size_iv = topology[0];
+    size_ov = topology[layers-1];
 
     /* Allocate enough memory for an array to hold all input and output vectors
      * of the training set */
-    int i;
-    t.iv = malloc(t.n * sizeof(double *));
-    t.ov = malloc(t.n * sizeof(double *));
-    for (i = 0; i < t.n; i++) {
-        t.iv[i] = malloc(t.size_iv * sizeof(double));
-        t.ov[i] = malloc(t.size_ov * sizeof(double));
-    }    
+    t.iv = mkarr2d(t.n, size_iv); 
+    t.ov = mkarr2d(t.n, size_ov); 
 
-    /* Make a second pass through the training set file and load it into both
-     * arrays */
-    char v[DBL_DIG+2]; /* Largest string representation of a float */
-    div_t d;
-    int line_size;
-    rewind(fp);
+    /* Iterate over all training cases in the database and load each one into
+     * memory */
+    double *iv, *ov;
+    int i;
+    mongo_cursor cursor[1];
+    mongo_cursor_init(cursor, conn, "khann_" DATA_KEY ".training");
     i = 0;
-    line_size = t.size_iv + t.size_ov;
-    while (fscanf(fp, "%[^,:\n]%*c", v) != EOF) {
-        d = div(i, line_size);
-        if (d.rem < t.size_iv)
-            t.iv[d.quot][d.rem] = atof(v);
-        else
-            t.ov[d.quot][d.rem - t.size_iv] = atof(v);
+    iv = t.iv.arr;
+    ov = t.ov.arr;
+
+    while (i < t.n) {
+        if (mongo_cursor_next(cursor) != MONGO_OK) {
+            printf("Failed to iterate through training set in database");
+            exit(EXIT_FAILURE);
+        }
+
+        bson_iterator it[1], sub[1];
+        bson *b = &cursor->current;
+        bson_iterator_init(it, b);
+
+        bson_find(it, b, "iv");
+        bson_iterator_subiterator(it, sub);
+        while (bson_iterator_next(sub) != BSON_EOO)
+            *iv++ = bson_iterator_double(sub);
+
+        bson_find(it, b, "ov");
+        bson_iterator_subiterator(it, sub);
+        while (bson_iterator_next(sub) != BSON_EOO)
+            *ov++ = bson_iterator_double(sub);
+
         ++i;
     }
-    fclose(fp);
 
+    mongo_cursor_destroy(cursor);
+    mongo_destroy(conn);
     return t;
 }
 
 /* Free memory dynamically allocated for the training set */
 static void free_training_set(struct training_set *t)
 {
-    int i;
-    for (i = 0; i < t->n; i++) {
-        free(t->iv[i]);
-        free(t->ov[i]);
-    }
-    free(t->iv);
-    free(t->ov);
+    free(t->iv.arr);
+    free(t->ov.arr);
 }
 
 /* Free memory dynamically allocated for the network */
@@ -451,46 +458,85 @@ static struct arr2d mkarr2d(int x, int y)
     return a;
 }
 
-/* TODO(jhibberd) Might we lose weight precision when printing each value?
- * Perhaps try and explicitly state the number of decimal places? */
-/* Save network weights to a file */
+/* Save network weights to the database */
 static void save_weights(struct network *n) 
 {
+    mongo conn[1];
+    bson b[1];
+    int status, key_i;
+    char key[10];
     int i, j, k;
     double w;
-    FILE *fp;
 
-    fp = fopen("data/" DATA_KEY ".weights", "w");
+    status = mongo_client(conn, "127.0.0.1", 27017);
+    if (status != MONGO_OK) {
+        printf("Error connecting to database");
+        exit(EXIT_FAILURE);
+    }
+    
+    bson_init(b);
+    bson_append_string(b, "_id", DATA_KEY);
+    bson_append_start_array(b, "data");
 
+    key_i = 0;
     for (i = 1; i < n->layers; ++i)
         for (j = 0; j < topology[i]; ++j)
             for (k = 0; k < topology[i-1]; ++k) {
                 w = *getarr3d(&n->weight, i, j, k);
-                fprintf(fp, "%lf,", w);
+                sprintf(key, "%d", key_i);
+                bson_append_double(b, key, w);
+                ++key_i;
             }
 
-    fclose(fp);
+    bson_append_finish_array(b);
+    bson_finish(b);
+    mongo_insert(conn, "khann__system.weights", b, NULL);
+    bson_destroy(b);
+    mongo_destroy(conn);
 }
 
-/* Load network weights from a file */
+/* Load network weights from the database */
 static void load_weights(struct network *n) 
 {
+    mongo conn[1];
+    bson b[1], q[1];
     int i, j, k;
     double w;
-    FILE *fp;
+    int status;
 
-    fp = fopen("data/" DATA_KEY ".weights", "r");
+    status = mongo_client(conn, "127.0.0.1", 27017);
+    if (status != MONGO_OK) {
+        printf("Error connecting to database");
+        exit(EXIT_FAILURE);
+    }
+
+    bson_init(q);
+    bson_append_string(b, "_id", DATA_KEY);
+    bson_finish(q);
+    status = mongo_find_one(conn, "khann__system.weights", q, NULL, b);
+    if (status != MONGO_OK) {
+        printf("Failed to find weights doc in database");
+        exit(EXIT_FAILURE);
+    }
+    
+    bson_iterator it[1], sub[1];
+    bson_iterator_init(it, b);
+    if (!bson_find(it, b, "data")) {
+        printf("Corrupt weights doc");
+        exit(EXIT_FAILURE);
+    }
+    bson_iterator_subiterator(it, sub);
 
     for (i = 1; i < n->layers; ++i)
         for (j = 0; j < topology[i]; ++j)
             for (k = 0; k < topology[i-1]; ++k) {
-                if (fscanf(fp, "%lf,", &w) != 1) {
-                    fprintf(stderr, "%s", "Error loading weights");
-                    exit(1);
-                }
+                bson_iterator_next(sub);
+                w = bson_iterator_double(sub);
+                printf("%fl-", w);
                 *getarr3d(&n->weight, i, j, k) = w;
             }
 
-    fclose(fp);
+    bson_destroy(q);
+    bson_destroy(b);
 }
 

@@ -3,7 +3,9 @@
  * Usage: ./network -(v|t)
  */
 
-main(int argx, char **argv) 
+#include "ann.h"
+
+int main(int argx, char **argv) 
 {
     switch (argv[1][1]) {
         case 't':
@@ -12,8 +14,8 @@ main(int argx, char **argv)
         case 'v':
             validate_network();
             break;
-        case 's':
+        /*case 's':
             time_network();
-            break;
+            break;*/
     }
 }

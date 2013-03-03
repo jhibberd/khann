@@ -1,6 +1,6 @@
 #!/bin/bash
 set -ex
 cd src
-gcc -o network main.c ann.c -lm -lrt
+gcc --std=c99 -I/usr/local/include -L/usr/local/lib -o network main.c ann.c -lmongoc -lm -lrt
 cd ..
 mv src/network .
