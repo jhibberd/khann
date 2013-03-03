@@ -2,7 +2,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "config/binadd.h"
+#include "config/digit.h"
 #include "ann.h"
 #include "mongo.h"
 

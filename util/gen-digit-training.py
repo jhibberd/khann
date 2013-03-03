@@ -21,7 +21,7 @@ if __name__ == "__main__":
 
     coll = MongoClient().khann_num.training
     skipped_header = False
-    for ln in open("../data/digit.training.csv"): 
+    for ln in open("digit.training.csv"): 
 
         if not skipped_header:
             skipped_header = True
