@@ -2,7 +2,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "ann.h"
+#include "khann.h"
 #include "mongo.h"
 
 
@@ -412,7 +412,7 @@ static struct training_set load_training_set(struct network *n)
     }
 
     /* Discover the dimensions of the training set */
-    int size_iv, size_ov, layers;
+    int size_iv, size_ov;
     char db[256];
     sprintf(db, "khann_%s", n->id);
     t.n = (int) mongo_count(conn, db, "training", NULL);

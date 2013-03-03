@@ -3,7 +3,7 @@
  * Usage: ./network -(v|t)
  */
 
-#include "ann.h"
+#include "khann.h"
 
 int main(int argx, char **argv) 
 {

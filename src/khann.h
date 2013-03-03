@@ -67,7 +67,7 @@ static void set_error_terms(struct network *n, struct training_set *t, int ti);
 static void set_outputs(struct network *n, double *iv);
 static void set_weights(struct network *n);
 static void test_weights(struct training_set *t, struct network *n);
-static void time_train(struct training_set *t, struct network *n);
+/*static void time_train(struct training_set *t, struct network *n);*/
 static void train(struct training_set *t, struct network *n);
 static double training_error(struct network *n, struct training_set *t, int ti);
 

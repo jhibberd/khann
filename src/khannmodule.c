@@ -3,7 +3,6 @@
  */
 
 #include <Python.h>
-#include "config/digit.h"
 
 struct eval_res {
     float *ov;              /* Pointer to output vector */
@@ -11,23 +10,23 @@ struct eval_res {
 };
 
 extern struct eval_res eval(float *iv);
-static PyObject *ann_eval(PyObject *self, PyObject *args); 
+static PyObject *khann_eval(PyObject *self, PyObject *args); 
 
 /* Module manifest */
-static PyMethodDef ANNMethods[] = 
+static PyMethodDef KhannMethods[] = 
 {
-    {"eval", ann_eval, METH_VARARGS, "Evaluate an input vector."},
+    {"eval", khann_eval, METH_VARARGS, "Evaluate an input vector."},
     {NULL, NULL, 0, NULL}
 };
 
 /* Module initialisation */
-PyMODINIT_FUNC initann(void) 
+PyMODINIT_FUNC initkhann(void) 
 {
-    (void) Py_InitModule("ann", ANNMethods);
+    (void) Py_InitModule("khann", KhannMethods);
 }
 
 /* Evaluate an input vector using C neural network */
-static PyObject *ann_eval(PyObject *self, PyObject *args) 
+static PyObject *khann_eval(PyObject *self, PyObject *args) 
 {
     int i;
 
