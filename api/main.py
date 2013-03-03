@@ -14,10 +14,10 @@ class NetworkHandler(RequestHandler):
 
     def get(self):
         """Evaluate an input vector using the neural network."""
-        iv = self.get_argument("iv")
+        #iv = self.get_argument("iv")
         # TODO(jhibberd) Validate
         # TODO(jhibberd) Annotate the output vector?
-        self.write("Hello, world")
+        self.write("Hello, world from api")
 
     def post(self):
         """Store a new training case, provided by the community."""
@@ -52,6 +52,6 @@ application = Application([
 ], debug=True)
 
 if __name__ == "__main__":
-    application.listen(8888)
+    application.listen(8000)
     tornado.ioloop.IOLoop.instance().start()
 

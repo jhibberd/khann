@@ -2,21 +2,19 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "config/digit.h"
 #include "ann.h"
 #include "mongo.h"
 
-static const int topology[] = TOPOLOGY;
 
 /* Learn weights that classify the training set with an acceptable level of
  * success */
-void train_network(void)
+void train_network(const char *nid)
 {
     struct training_set t;
     struct network n;
 
-    t = load_training_set();
-    n = mknetwork(RAND_WEIGHTS);
+    n = mknetwork(nid, RAND_WEIGHTS);
+    t = load_training_set(&n);
     train(&t, &n);
     test_weights(&t, &n);
     save_weights(&n);
@@ -26,13 +24,13 @@ void train_network(void)
 
 /* Output the degree to which the saved weights correctly classify the training 
  * set */
-void validate_network(void)
+void validate_network(const char *nid)
 {
     struct training_set t;
     struct network n;
 
-    t = load_training_set();
-    n = mknetwork(LOAD_WEIGHTS);
+    n = mknetwork(nid, LOAD_WEIGHTS);
+    t = load_training_set(&n);
     test_weights(&t, &n);
     free_training_set(&t);
     free_network(&n);
@@ -60,33 +58,81 @@ struct eval_res eval(double *iv)
      * static storage */
     static short loaded = 0;
     static struct network n;
+    /* TODO(jhibberd) Will need a dict of these */
     if (!loaded) {
-        n = mknetwork(LOAD_WEIGHTS);
+        n = mknetwork("binadd", LOAD_WEIGHTS);
         loaded = 1;
     }
 
     struct eval_res res;
     set_outputs(&n, iv);
     res.ov = getarr2d(&n.output, n.layers -1, 0);
-    res.n = topology[n.layers -1];
+    res.n = n.topology[n.layers -1];
     return res;
 }
 
 /* Construct a network, either with random weights or weights loaded from
  * a file */
-static struct network mknetwork(weight_mode wm) 
+static struct network mknetwork(const char *nid, weight_mode wm) 
 {
     struct network n;
     int i, max_layer_size;
+    mongo conn[1];
+    bson b[1], q[1];
+    int status;
 
-    /* Count layers in network */
-    n.layers = sizeof(topology) / sizeof(int);
+    /* Set network ID */
+    strcpy(n.id, nid);
+
+    /* Connect to database */
+    status = mongo_client(conn, "127.0.0.1", 27017);
+    if (status != MONGO_OK) {
+        printf("Error connecting to database");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Read settings for network */
+    bson_init(q);
+    bson_append_string(q, "_id", nid);
+    bson_finish(q);
+    status = mongo_find_one(conn, "khann__system.settings", q, NULL, b);
+    if (status != MONGO_OK) {
+        printf("Failed to find settings doc in database");
+        exit(EXIT_FAILURE);
+    }
+   
+    bson_iterator it[1], sub[1];
+    bson_iterator_init(it, b);
+
+    /* Set topology and number of layers */
+    bson_iterator_init(it, b);
+    if (!bson_find(it, b, "topology")) {
+        printf("Corrupt settings doc");
+        exit(EXIT_FAILURE);
+    }
+    bson_iterator_subiterator(it, sub);
+    n.layers = 0;
+    while (bson_iterator_next(sub) != BSON_EOO) {
+        n.topology[n.layers] = bson_iterator_int(sub);
+        ++n.layers;
+    }
+
+    /* Set error threshold */
+    if (!bson_find(it, b, "error_threshold")) {
+        printf("Corrupt settings doc");
+        exit(EXIT_FAILURE);
+    }
+    n.err_thresh = bson_iterator_double(it); 
+
+    bson_destroy(q);
+    bson_destroy(b);
+    mongo_destroy(conn);
 
     /* Get size of largest layer (all arrays will be 'square' for now) */
     max_layer_size = 0;
     for (i = 0; i < n.layers; i++)
-        if (topology[i] > max_layer_size)
-            max_layer_size = topology[i];
+        if (n.topology[i] > max_layer_size)
+            max_layer_size = n.topology[i];
 
     /* Allocate memory for all arrays */
     n.output =  mkarr2d(n.layers, max_layer_size); 
@@ -116,8 +162,8 @@ static void rand_weights(struct network *n)
 
     srand(time(NULL));
     for (i = 1; i < n->layers; ++i)
-        for (j = 0; j < topology[i]; ++j)
-            for (k = 0; k < topology[i-1]; ++k) {
+        for (j = 0; j < n->topology[i]; ++j)
+            for (k = 0; k < n->topology[i-1]; ++k) {
                 w = ((double)rand() / (double)RAND_MAX) - 0.5;
                 *getarr3d(&n->weight, i, j, k) = w;
             }
@@ -130,20 +176,20 @@ static void set_outputs(struct network *n, double *iv)
     int i, j;
 
     /* Set first layer of output nodes to value of input vector */ 
-    for (i = 0; i < topology[0]; ++i)
+    for (i = 0; i < n->topology[0]; ++i)
         *getarr2d(&n->output, 0, i) = *iv++;
 
     /* Recursively set the output values of all downstream nodes, using the
      * current weight values */
     for (i = 1; i < n->layers; ++i)
-        for (j = 0; j < topology[i]; ++j) {
+        for (j = 0; j < n->topology[i]; ++j) {
 
             double dp = 0, *pw, *po;
             int c;
 
             pw = getarr3d(&n->weight, i, j, 0);
             po = getarr2d(&n->output, i-1, 0);
-            c = topology[i-1];
+            c = n->topology[i-1];
             while (c-- > 0)
                 dp += *pw++ * *po++;
 
@@ -177,13 +223,13 @@ static void set_error_terms(struct network *n, struct training_set *t, int ti)
     for (i = n->layers -2; i >= 0; --i) {
         o = getarr2d(&n->output, i, 0);
         e = getarr2d(&n->error, i, 0);
-        for (j = 0; j < topology[i]; ++j) {
+        for (j = 0; j < n->topology[i]; ++j) {
 
             int k;
             double dp = 0, w, *e2;
             
             e2 = getarr2d(&n->error, i+1, 0);
-            for (k = 0; k < topology[i+1]; ++k) {
+            for (k = 0; k < n->topology[i+1]; ++k) {
                 w = *getarr3d(&n->weight, i+1, k, j);
                 dp += w * *e2++;
             }
@@ -202,11 +248,11 @@ static void set_weights(struct network *n)
     double *w, *o, f;
 
     for (i = 1; i < n->layers; ++i)
-        for (j = 0; j < topology[i]; ++j) {
+        for (j = 0; j < n->topology[i]; ++j) {
             w = getarr3d(&n->weight, i, j, 0);
             o = getarr2d(&n->output, i-1, 0); 
             f = LEARNING_RATE * *getarr2d(&n->error, i, j);
-            c = topology[i-1];
+            c = n->topology[i-1];
             while (c-- > 0)
                 *w++ += f * *o++;
         }
@@ -234,12 +280,11 @@ static double training_error(struct network *n, struct training_set *t, int ti)
  * entire training set falls below a defined threshold */
 static void train(struct training_set *t, struct network *n)
 {
-    int i, it, cfd;
+    int i, cfd;
     double err, *iv;
 
     fprintf(stderr, "Training with training set of %d items\n", t->n);
 
-    it = 0;
     do {
         err = 0, cfd = 0;
 
@@ -247,23 +292,17 @@ static void train(struct training_set *t, struct network *n)
             iv = getarr2d(&t->iv, i, 0);
             set_outputs(n, iv);
             err += training_error(n, t, i);
-            if (it == DEBUG_THRESHOLD)
-                cfd += did_classify(n, t, i);
+            cfd += did_classify(n, t, i);
             set_error_terms(n, t, i);
             set_weights(n);
         }
 
         /* Progress output */
-        if (it == DEBUG_THRESHOLD) {
-            fprintf(
-                stderr, "error %f/%f | classified %d/%d\n", 
-                (err / t->n), ERROR_THRESHOLD, cfd, t->n);
-            it = 0;
-        }
-        else 
-            ++it;
+        fprintf(
+            stderr, "error %f/%f | classified %d/%d\n", 
+            (err / t->n), n->err_thresh, cfd, t->n);
 
-    } while ((err / t->n) > ERROR_THRESHOLD);
+    } while ((err / t->n) > n->err_thresh);
 }
 
 /* TODO(jhibberd) With "--std-c99" various time components no longer exist.
@@ -360,7 +399,7 @@ static void test_weights(struct training_set *t, struct network *n)
 }
 
 /* Load the training set from file into memory */
-static struct training_set load_training_set(void)
+static struct training_set load_training_set(struct network *n)
 {
     struct training_set t;
 
@@ -374,10 +413,11 @@ static struct training_set load_training_set(void)
 
     /* Discover the dimensions of the training set */
     int size_iv, size_ov, layers;
-    t.n = (int) mongo_count(conn, "khann_" DATA_KEY, "training", NULL);
-    layers = sizeof(topology) / sizeof(int);
-    size_iv = topology[0];
-    size_ov = topology[layers-1];
+    char db[256];
+    sprintf(db, "khann_%s", n->id);
+    t.n = (int) mongo_count(conn, db, "training", NULL);
+    size_iv = n->topology[0];
+    size_ov = n->topology[n->layers-1];
 
     /* Allocate enough memory for an array to hold all input and output vectors
      * of the training set */
@@ -388,8 +428,10 @@ static struct training_set load_training_set(void)
      * memory */
     double *iv, *ov;
     int i;
+    char ns[256];
     mongo_cursor cursor[1];
-    mongo_cursor_init(cursor, conn, "khann_" DATA_KEY ".training");
+    sprintf(ns, "khann_%s.training", n->id);
+    mongo_cursor_init(cursor, conn, ns);
     i = 0;
     iv = t.iv.arr;
     ov = t.ov.arr;
@@ -475,13 +517,13 @@ static void save_weights(struct network *n)
     }
     
     bson_init(b);
-    bson_append_string(b, "_id", DATA_KEY);
+    bson_append_string(b, "_id", n->id);
     bson_append_start_array(b, "data");
 
     key_i = 0;
     for (i = 1; i < n->layers; ++i)
-        for (j = 0; j < topology[i]; ++j)
-            for (k = 0; k < topology[i-1]; ++k) {
+        for (j = 0; j < n->topology[i]; ++j)
+            for (k = 0; k < n->topology[i-1]; ++k) {
                 w = *getarr3d(&n->weight, i, j, k);
                 sprintf(key, "%d", key_i);
                 bson_append_double(b, key, w);
@@ -511,7 +553,7 @@ static void load_weights(struct network *n)
     }
 
     bson_init(q);
-    bson_append_string(b, "_id", DATA_KEY);
+    bson_append_string(q, "_id", n->id);
     bson_finish(q);
     status = mongo_find_one(conn, "khann__system.weights", q, NULL, b);
     if (status != MONGO_OK) {
@@ -528,15 +570,15 @@ static void load_weights(struct network *n)
     bson_iterator_subiterator(it, sub);
 
     for (i = 1; i < n->layers; ++i)
-        for (j = 0; j < topology[i]; ++j)
-            for (k = 0; k < topology[i-1]; ++k) {
+        for (j = 0; j < n->topology[i]; ++j)
+            for (k = 0; k < n->topology[i-1]; ++k) {
                 bson_iterator_next(sub);
                 w = bson_iterator_double(sub);
-                printf("%fl-", w);
                 *getarr3d(&n->weight, i, j, k) = w;
             }
 
     bson_destroy(q);
     bson_destroy(b);
+    mongo_destroy(conn);
 }
 
