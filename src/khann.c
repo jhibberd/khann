@@ -5,11 +5,40 @@
 #include "khann.h"
 #include "mongo.h"
 
+unsigned long hash(unsigned char *str);
+
+unsigned long hash(unsigned char *str)
+{
+    unsigned long hash = 5381;
+    int c;
+
+    while (c = *str++)
+        hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+
+    return hash;
+}
+
 
 /* Learn weights that classify the training set with an acceptable level of
  * success */
 void train_network(const char *nid)
 {
+    /* TODO(jhibberd) Build own hashtable for now for eval function 
+    unsigned long a = hash("binadd");
+    unsigned long b = hash("xor");
+    unsigned long c = hash("alphanum");
+    unsigned long d = hash("num");
+    int z = 100;
+    int e = a % z;
+    int f = b % z;
+    int g = c % z;
+    int h = d % z;
+    printf("%lu-%lu-%lu-%lu\n", a, b, c, d);
+    printf("%d-%d-%d-%d\n", e, f, g, h);
+    printf("%lu", sizeof(struct network *));
+    exit(0);
+    */
+
     struct training_set t;
     struct network n;
 
@@ -500,85 +529,31 @@ static struct arr2d mkarr2d(int x, int y)
     return a;
 }
 
-/* Save network weights to the database */
+/* Save network weights to a file */
 static void save_weights(struct network *n) 
 {
-    mongo conn[1];
-    bson b[1];
-    int status, key_i;
-    char key[10];
-    int i, j, k;
-    double w;
+    int num;
+    FILE *fp;
+    char path[256];
 
-    status = mongo_client(conn, "127.0.0.1", 27017);
-    if (status != MONGO_OK) {
-        printf("Error connecting to database");
-        exit(EXIT_FAILURE);
-    }
-    
-    bson_init(b);
-    bson_append_string(b, "_id", n->id);
-    bson_append_start_array(b, "data");
-
-    key_i = 0;
-    for (i = 1; i < n->layers; ++i)
-        for (j = 0; j < n->topology[i]; ++j)
-            for (k = 0; k < n->topology[i-1]; ++k) {
-                w = *getarr3d(&n->weight, i, j, k);
-                sprintf(key, "%d", key_i);
-                bson_append_double(b, key, w);
-                ++key_i;
-            }
-
-    bson_append_finish_array(b);
-    bson_finish(b);
-    mongo_insert(conn, "khann__system.weights", b, NULL);
-    bson_destroy(b);
-    mongo_destroy(conn);
+    sprintf(path, "weights/%s", n->id);
+    fp = fopen(path, "w");
+    num = n->weight.dx * n->weight.dy * n->weight.dz;
+    fwrite(n->weight.arr, sizeof(double), num, fp); 
+    fclose(fp);
 }
 
-/* Load network weights from the database */
+/* Load network weights from a file */
 static void load_weights(struct network *n) 
 {
-    mongo conn[1];
-    bson b[1], q[1];
-    int i, j, k;
-    double w;
-    int status;
+    int num;
+    FILE *fp;
+    char path[256];
 
-    status = mongo_client(conn, "127.0.0.1", 27017);
-    if (status != MONGO_OK) {
-        printf("Error connecting to database");
-        exit(EXIT_FAILURE);
-    }
-
-    bson_init(q);
-    bson_append_string(q, "_id", n->id);
-    bson_finish(q);
-    status = mongo_find_one(conn, "khann__system.weights", q, NULL, b);
-    if (status != MONGO_OK) {
-        printf("Failed to find weights doc in database");
-        exit(EXIT_FAILURE);
-    }
-    
-    bson_iterator it[1], sub[1];
-    bson_iterator_init(it, b);
-    if (!bson_find(it, b, "data")) {
-        printf("Corrupt weights doc");
-        exit(EXIT_FAILURE);
-    }
-    bson_iterator_subiterator(it, sub);
-
-    for (i = 1; i < n->layers; ++i)
-        for (j = 0; j < n->topology[i]; ++j)
-            for (k = 0; k < n->topology[i-1]; ++k) {
-                bson_iterator_next(sub);
-                w = bson_iterator_double(sub);
-                *getarr3d(&n->weight, i, j, k) = w;
-            }
-
-    bson_destroy(q);
-    bson_destroy(b);
-    mongo_destroy(conn);
+    sprintf(path, "weights/%s", n->id);
+    fp = fopen(path, "r");
+    num = n->weight.dx * n->weight.dy * n->weight.dz;
+    fread(n->weight.arr, sizeof(double), num, fp); 
+    fclose(fp);
 }
 
