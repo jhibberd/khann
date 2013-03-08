@@ -28,7 +28,7 @@ struct network {
     double err_thresh;      /* The learning error threshold */
 };
 
-struct eval_res {
+struct evaluation {
     double *ov;             /* Pointer to output vector */
     int n;                  /* Size of output vector */
 };
@@ -48,7 +48,8 @@ typedef enum {
 #define LEARNING_RATE 0.5
 #define TEST_SAMPLE_SIZE 10
 
-struct eval_res eval(double *iv);
+void cluster_init(void);
+struct evaluation cluster_eval(const char *nid, double *iv);
 void time_network(void);
 void train_network(const char *nid);
 void validate_network(const char *nid);
@@ -60,7 +61,7 @@ static void free_network(struct network *n);
 static void free_training_set(struct training_set *t);
 static struct training_set load_training_set(struct network *n);
 static void load_weights(struct network *n);
-static struct network mknetwork(const char *nid, weight_mode wm); 
+static void mknetwork(struct network *n, const char *nid, weight_mode wm); 
 static void rand_weights(struct network *n);
 static void save_weights(struct network *n);
 static void set_error_terms(struct network *n, struct training_set *t, int ti);

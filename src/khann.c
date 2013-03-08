@@ -2,47 +2,19 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "hashtable.h"
 #include "khann.h"
 #include "mongo.h"
-
-unsigned long hash(unsigned char *str);
-
-unsigned long hash(unsigned char *str)
-{
-    unsigned long hash = 5381;
-    int c;
-
-    while (c = *str++)
-        hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
-
-    return hash;
-}
 
 
 /* Learn weights that classify the training set with an acceptable level of
  * success */
 void train_network(const char *nid)
 {
-    /* TODO(jhibberd) Build own hashtable for now for eval function 
-    unsigned long a = hash("binadd");
-    unsigned long b = hash("xor");
-    unsigned long c = hash("alphanum");
-    unsigned long d = hash("num");
-    int z = 100;
-    int e = a % z;
-    int f = b % z;
-    int g = c % z;
-    int h = d % z;
-    printf("%lu-%lu-%lu-%lu\n", a, b, c, d);
-    printf("%d-%d-%d-%d\n", e, f, g, h);
-    printf("%lu", sizeof(struct network *));
-    exit(0);
-    */
-
     struct training_set t;
     struct network n;
 
-    n = mknetwork(nid, RAND_WEIGHTS);
+    mknetwork(&n, nid, RAND_WEIGHTS);
     t = load_training_set(&n);
     train(&t, &n);
     test_weights(&t, &n);
@@ -58,7 +30,7 @@ void validate_network(const char *nid)
     struct training_set t;
     struct network n;
 
-    n = mknetwork(nid, LOAD_WEIGHTS);
+    mknetwork(&n, nid, LOAD_WEIGHTS);
     t = load_training_set(&n);
     test_weights(&t, &n);
     free_training_set(&t);
@@ -78,40 +50,73 @@ void time_network(void)
     free_network(&n);
 }*/
 
+/* Load all learnt networks into memory for on-demand evaluation of input
+ * vectors */
+void cluster_init(void)
+{
+    /* Get network IDs */
+    char nids[10][256];
+    int i;
+    mongo conn[1];
+    mongo_cursor cursor[1];
+    int status;
+    bson *b;
+    bson_iterator it[1];
+
+    status = mongo_client(conn, "127.0.0.1", 27017);
+    if (status != MONGO_OK) {
+        printf("Error connecting to database");
+        exit(EXIT_FAILURE);
+    }
+
+    i = 0;
+    mongo_cursor_init(cursor, conn, "khann__system.settings");
+    while (mongo_cursor_next(cursor) == MONGO_OK) {
+        b = &cursor->current;
+        bson_iterator_init(it, b);
+        bson_find(it, b, "_id");
+        strcpy(nids[i++], bson_iterator_string(it));
+    }
+
+    mongo_cursor_destroy(cursor);
+    mongo_destroy(conn);
+
+    /* Initialise networks and store in hashtable */
+    int j;
+    struct network *n;
+    for (j = 0; j < i; ++j) {
+        n = (struct network *) malloc(sizeof(struct network));
+        mknetwork(n, nids[j], LOAD_WEIGHTS);
+        hashtable_set(nids[j], n);
+    }
+}
+
 /* Evaluate an input vector using a network with pre-learnt weights. The return 
  * value is the network's output vector. This function is used by the python
  * extension module. */
-struct eval_res eval(double *iv) 
+struct evaluation cluster_eval(const char *nid, double *iv)
 {
-    /* Lazily initialise the network, but once loaded persist across calls in 
-     * static storage */
-    static short loaded = 0;
-    static struct network n;
-    /* TODO(jhibberd) Will need a dict of these */
-    if (!loaded) {
-        n = mknetwork("binadd", LOAD_WEIGHTS);
-        loaded = 1;
-    }
+    struct network *n;
+    struct evaluation e;
 
-    struct eval_res res;
-    set_outputs(&n, iv);
-    res.ov = getarr2d(&n.output, n.layers -1, 0);
-    res.n = n.topology[n.layers -1];
-    return res;
+    n = (struct network *) hashtable_get(nid);
+    set_outputs(n, iv);
+    e.ov = getarr2d(&n->output, n->layers -1, 0);
+    e.n = n->topology[n->layers -1];
+    return e;
 }
 
 /* Construct a network, either with random weights or weights loaded from
  * a file */
-static struct network mknetwork(const char *nid, weight_mode wm) 
+static void mknetwork(struct network *n, const char *nid, weight_mode wm) 
 {
-    struct network n;
     int i, max_layer_size;
     mongo conn[1];
     bson b[1], q[1];
     int status;
 
     /* Set network ID */
-    strcpy(n.id, nid);
+    strcpy(n->id, nid);
 
     /* Connect to database */
     status = mongo_client(conn, "127.0.0.1", 27017);
@@ -126,7 +131,7 @@ static struct network mknetwork(const char *nid, weight_mode wm)
     bson_finish(q);
     status = mongo_find_one(conn, "khann__system.settings", q, NULL, b);
     if (status != MONGO_OK) {
-        printf("Failed to find settings doc in database");
+        fprintf(stderr, "Failed to find '%s' settings doc in database", nid);
         exit(EXIT_FAILURE);
     }
    
@@ -140,10 +145,10 @@ static struct network mknetwork(const char *nid, weight_mode wm)
         exit(EXIT_FAILURE);
     }
     bson_iterator_subiterator(it, sub);
-    n.layers = 0;
+    n->layers = 0;
     while (bson_iterator_next(sub) != BSON_EOO) {
-        n.topology[n.layers] = bson_iterator_int(sub);
-        ++n.layers;
+        n->topology[n->layers] = bson_iterator_int(sub);
+        ++n->layers;
     }
 
     /* Set error threshold */
@@ -151,7 +156,7 @@ static struct network mknetwork(const char *nid, weight_mode wm)
         printf("Corrupt settings doc");
         exit(EXIT_FAILURE);
     }
-    n.err_thresh = bson_iterator_double(it); 
+    n->err_thresh = bson_iterator_double(it); 
 
     bson_destroy(q);
     bson_destroy(b);
@@ -159,28 +164,26 @@ static struct network mknetwork(const char *nid, weight_mode wm)
 
     /* Get size of largest layer (all arrays will be 'square' for now) */
     max_layer_size = 0;
-    for (i = 0; i < n.layers; i++)
-        if (n.topology[i] > max_layer_size)
-            max_layer_size = n.topology[i];
+    for (i = 0; i < n->layers; i++)
+        if (n->topology[i] > max_layer_size)
+            max_layer_size = n->topology[i];
 
     /* Allocate memory for all arrays */
-    n.output =  mkarr2d(n.layers, max_layer_size); 
-    n.error =   mkarr2d(n.layers, max_layer_size); 
-    n.weight =  mkarr3d(n.layers, max_layer_size, max_layer_size);
+    n->output =  mkarr2d(n->layers, max_layer_size); 
+    n->error =   mkarr2d(n->layers, max_layer_size); 
+    n->weight =  mkarr3d(n->layers, max_layer_size, max_layer_size);
 
     /* Set weights, either by randomly assigning values if the network is 
      * being trained, or by loading values if the network has already been
      * trained */
     switch (wm) {
         case RAND_WEIGHTS:
-            rand_weights(&n);
+            rand_weights(n);
             break;
         case LOAD_WEIGHTS:
-            load_weights(&n);
+            load_weights(n);
             break;
     }
-
-    return n;
 }
 
 /* Assign random weights (between -0.5 and +0.5) to the network */
@@ -553,7 +556,10 @@ static void load_weights(struct network *n)
     sprintf(path, "weights/%s", n->id);
     fp = fopen(path, "r");
     num = n->weight.dx * n->weight.dy * n->weight.dz;
-    fread(n->weight.arr, sizeof(double), num, fp); 
+    if (fread(n->weight.arr, sizeof(double), num, fp) != num) {
+        fprintf(stderr, "Failed to read weights from file");
+        exit(EXIT_FAILURE);
+    }
     fclose(fp);
 }
 

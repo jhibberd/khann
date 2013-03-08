@@ -11,7 +11,7 @@ from distutils.core import setup, Extension
 
 mod = Extension(
     "khann",
-    sources=["src/khann.c", "src/khannmodule.c"],
+    sources=["src/khann.c", "src/khannmodule.c", "src/hashtable.c"],
     extra_compile_args=["--std=c99"],
     libraries=["mongoc"],
     )
