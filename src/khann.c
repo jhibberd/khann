@@ -537,9 +537,9 @@ static void save_weights(struct network *n)
 {
     int num;
     FILE *fp;
-    char path[256];
+    char path[1024];
 
-    sprintf(path, "weights/%s", n->id);
+    sprintf(path, "/home/jhibberd/projects/khann/weights/%s", n->id);
     fp = fopen(path, "w");
     num = n->weight.dx * n->weight.dy * n->weight.dz;
     fwrite(n->weight.arr, sizeof(double), num, fp); 
@@ -551,9 +551,9 @@ static void load_weights(struct network *n)
 {
     int num;
     FILE *fp;
-    char path[256];
+    char path[1024];
 
-    sprintf(path, "weights/%s", n->id);
+    sprintf(path, "/home/jhibberd/projects/khann/weights/%s", n->id);
     fp = fopen(path, "r");
     num = n->weight.dx * n->weight.dy * n->weight.dz;
     if (fread(n->weight.arr, sizeof(double), num, fp) != num) {
