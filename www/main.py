@@ -5,15 +5,15 @@ from tornado.web import Application, RequestHandler
 
 class XORHandler(RequestHandler):
     def get(self):
-        self.render("html/xor.html")
+        self.render("html/eval/xor.html")
 
 class BinAddHandler(RequestHandler):
     def get(self):
-        self.render("html/binadd.html")
+        self.render("html/eval/binadd.html")
 
 class NumHandler(RequestHandler):
     def get(self):
-        self.render("html/num.html")
+        self.render("html/eval/num.html")
 
 class MainHandler(RequestHandler):
     """Render demo framework."""

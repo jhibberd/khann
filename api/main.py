@@ -29,22 +29,32 @@ class _ClusterMeta(object):
 
 class _Handler(RequestHandler):
 
-    def get(self):
+    def get(self, nid):
         """Evaluate an input vector using a trained neural network in the
         in-memory cluster.
         """
-        nid = self.get_argument("nid")
         iv = self.get_argument("iv")
         self._validate_NID(nid)
         iv = self._fmt_and_validate_IV(nid, iv)
         ov = khann.cluster_eval(nid, iv)
-        self.write({"ov": ov})
+        self.set_header(
+            "Access-Control-Allow-Origin", "http://local.www.khann.org")
+        self.write({
+            "ov_real":  ov,
+            "ov_bin":   self._bin_OV(ov),
+            })
 
-    def _validate_NID(self, nid):
+    @staticmethod
+    def _bin_OV(ov):
+        return map(lambda x: 1 if x >= 0.5 else 0, ov)
+
+    @staticmethod
+    def _validate_NID(nid):
         if not _ClusterMeta.is_valid_NID(nid):
             raise Exception("Unknown network '%s'" % nid)
 
-    def _fmt_and_validate_IV(self, nid, iv):
+    @staticmethod
+    def _fmt_and_validate_IV(nid, iv):
         iv = iv.split(",")
         try:
             iv = map(float, iv)
@@ -59,7 +69,7 @@ class _Handler(RequestHandler):
 
 def _run_server():
     app = Application([
-        (r"/", _Handler),
+        (r"/([\w]{2,})/?", _Handler),
         ], 
         debug=True)
     app.listen(8000)
