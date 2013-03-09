@@ -3,17 +3,23 @@
  * Usage: ./network -(v|t)
  */
 
-main(int argx, char **argv) 
+#include "khann.h"
+
+int main(int argx, char **argv) 
 {
+    char *nid;
+
     switch (argv[1][1]) {
         case 't':
-            train_network();
+            nid = argv[2];
+            train_network(nid);
             break;
         case 'v':
-            validate_network();
+            nid = argv[2];
+            validate_network(nid);
             break;
-        case 's':
+        /*case 's':
             time_network();
-            break;
+            break;*/
     }
 }

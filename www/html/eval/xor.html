@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block import %}
+    <script type="text/javascript" src="{{ static_url("xor.js") }}"></script>
+{% end %}
+{% block content %}
+    <h2>Exlusive OR</h2>
+    <form>
+        <input type="checkbox" id="signalA">Signal A<br />
+        <input type="checkbox" id="signalB">Signal B<br />
+        <input type="button" id="ivSubmit" value="Submit">
+    </form>
+{% end %}

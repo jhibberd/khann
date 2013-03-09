@@ -1,9 +1,27 @@
-import ann
+#import ann
 import os
 import tornado.ioloop
-import tornado.web
+from tornado.web import Application, RequestHandler
 
+class XORHandler(RequestHandler):
+    def get(self):
+        self.render("html/eval/xor.html")
 
+class BinAddHandler(RequestHandler):
+    def get(self):
+        self.render("html/eval/binadd.html")
+
+class NumHandler(RequestHandler):
+    def get(self):
+        self.render("html/eval/num.html")
+
+class MainHandler(RequestHandler):
+    """Render demo framework."""
+
+    def get(self):
+        self.render("html/main2.html")
+
+'''
 class MainHandler(tornado.web.RequestHandler):
     """Render demo framework."""
 
@@ -30,16 +48,19 @@ class EvalHandler(tornado.web.RequestHandler):
         xs = [(score, d) for d, score in enumerate(ov)]
         xs.sort()
         return xs[-1][1]
+'''
 
-
-application = tornado.web.Application([
-    (r"/", MainHandler),
-    (r"/eval", EvalHandler),
+application = Application([
+    (r"/xor",       XORHandler),
+    (r"/binadd",    BinAddHandler),
+    (r"/num",       NumHandler),
+    (r"/",          MainHandler),
+    #(r"/eval", EvalHandler),
 ],
 debug=True,
 static_path=os.path.join(os.path.dirname(__file__), "static"))
 
 if __name__ == "__main__":
-    application.listen(81)
+    application.listen(8002)
     tornado.ioloop.IOLoop.instance().start()
 

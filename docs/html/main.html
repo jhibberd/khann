@@ -1,0 +1,47 @@
+<html>
+    <head>
+        <title>khann - kollaborative hosted artificial neural network</title>
+        <style>
+
+        body {
+            font-family: 'Helvetica Neue', Arial, Helvetica, sans-serif;
+            font-size: 14px;
+        }
+
+        pre {
+            clear: both;
+            display: block;
+            font-family: monospace;
+            padding: 17px 10px;
+            border-top: 1px solid #ccc;
+            border-bottom: 1px solid #ccc;
+            border-right: 0;
+            border-left: 0;
+            margin-bottom: 18px;
+            width: 700px;
+            background: #f3f3f3;
+            overflow-x: auto; /* Use horizontal scroller if needed; for Firefox 2, not needed in Firefox 3 */
+            white-space: pre-wrap; /* css-3 */
+            white-space: -moz-pre-wrap !important; /* Mozilla, since 1999 */
+            white-space: -pre-wrap; /* Opera 4-6 */
+            white-space: -o-pre-wrap; /* Opera 7 */
+            word-wrap: break-word; /* Internet Explorer 5.5+ */
+        }
+
+        </style>
+    </head>
+    <body>
+        <h1>khann</h1>
+        Our API is as follows:<br /><br />
+        To help train a network:
+        <pre>POST http://api.khann.org/xor?iv=1.0,0.0&ov=1.0</pre>
+        <br />
+        To use a network:
+        <pre>GET http://api.khann.org/xor?iv=1.0,1.0</pre>
+        <br />
+        To get stats on a network:
+        <pre>GET http://api.khann.org/xor/stats</pre>
+        <pre>{"num_test_cases": 3}</pre>
+    </body>
+</html>
+

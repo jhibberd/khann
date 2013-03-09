@@ -13,21 +13,22 @@ struct arr2d {
 };
 
 struct training_set {
-    double **iv;            /* List of input vectors */
-    double **ov;            /* List of output vectors */
-    int n;                  /* Number of elements in the training set */
-    int size_iv;            /* Number of elements in each input vector */
-    int size_ov;            /* Number of elements in each output vector */
+    struct arr2d iv;        /* List of input vectors */
+    struct arr2d ov;        /* List of output vectors */
+    int n;                  /* Number of cases in the training set */
 };
 
 struct network {
+    char id[20];            /* Network ID */
     struct arr2d output;    /* Output value of each node */
     struct arr2d error;     /* Error term value of each node */
     struct arr3d weight;    /* Weight value of each node */
     int layers;             /* Number of network layers */
+    int topology[5];        /* Size of each network layer (max 5 layers) */
+    double err_thresh;      /* The learning error threshold */
 };
 
-struct eval_res {
+struct evaluation {
     double *ov;             /* Pointer to output vector */
     int n;                  /* Size of output vector */
 };
@@ -47,26 +48,27 @@ typedef enum {
 #define LEARNING_RATE 0.5
 #define TEST_SAMPLE_SIZE 10
 
-struct eval_res eval(double *iv);
+void cluster_init(void);
+struct evaluation cluster_eval(const char *nid, double *iv);
 void time_network(void);
-void train_network(void);
-void validate_network(void);
+void train_network(const char *nid);
+void validate_network(const char *nid);
 
 static struct arr2d mkarr2d(int x, int y);
 static struct arr3d mkarr3d(int x, int y, int z);
 static int did_classify(struct network *n, struct training_set *t, int ti);
 static void free_network(struct network *n);
 static void free_training_set(struct training_set *t);
-static struct training_set load_training_set(void);
+static struct training_set load_training_set(struct network *n);
 static void load_weights(struct network *n);
-static struct network mknetwork(weight_mode wm); 
+static void mknetwork(struct network *n, const char *nid, weight_mode wm); 
 static void rand_weights(struct network *n);
 static void save_weights(struct network *n);
 static void set_error_terms(struct network *n, struct training_set *t, int ti);
 static void set_outputs(struct network *n, double *iv);
 static void set_weights(struct network *n);
 static void test_weights(struct training_set *t, struct network *n);
-static void time_train(struct training_set *t, struct network *n);
+/*static void time_train(struct training_set *t, struct network *n);*/
 static void train(struct training_set *t, struct network *n);
 static double training_error(struct network *n, struct training_set *t, int ti);
 

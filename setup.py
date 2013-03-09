@@ -10,12 +10,15 @@ from distutils.core import setup, Extension
 
 
 mod = Extension(
-    "ann",
-    sources=["src/ann.c", "src/annmodule.c"])
+    "khann",
+    sources=["src/khann.c", "src/khannmodule.c", "src/hashtable.c"],
+    extra_compile_args=["--std=c99"],
+    libraries=["mongoc"],
+    )
 
 setup(
-    name="ArtificialNeuralNetwork",
+    name="khann",
     version="1.0",
-    description="Interface with Artificial Neural Network",
+    description="Kollaborative hosted artificial neural network",
     ext_modules=[mod])
 
