@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.0/jquery.min.js"></script>
+        <script type="text/javascript" src="{{ static_url("base.js") }}"></script>
+        <script type="text/javascript" src="{{ static_url("num.js") }}"></script>
+        <link rel="stylesheet" type="text/css" href="{{ static_url('main.css') }}" />
+        <title>An artificial neural network for recognising digits</title>
+    </head>
+    <body>
+        <div class="header">
+            <img class="gravatar" src="https://en.gravatar.com/userimage/29215904/1611a90c954e7eb940e181bf7daf6160.jpeg" />
+            <div class="copy">
+                <b>James Hibberd</b> &mdash; a software engineer from London currently working in Kuala Lumpur<br />
+                <a href="">Take a look at my resume</a>
+            </div>
+        </div>
+        <div class="content">
+            <h1>An artificial neural network for recognising digits</h1>
+
+            <div class="widgetArea">
+
+                <canvas id="canvas" width="308" height="308">
+                    <p>Unfortunately, your browser is currently unsupported by the
+                    web application.</p>
+                </canvas>
+
+                <div class="box">
+                    <div id="drawSomething">
+                        Draw a digit (0-9) in the box and click Submit &mdash; the artificial neural network will then tell you what it thinks you drew.<br /><br />
+                        <img src="{{ static_url("example.png") }}" /><span class="eg">(example)</span><br />
+                        <a id="ivSubmit" class="button">Submit</a>
+                    </div>
+                    <div id="youDrew">
+                        You drew a <b id="result"></b>!<br />
+                        <a id="playAgain" class="button">Play again</a>
+                    </div>
+                </div>
+
+            </div>
+
+            <p>
+            The Artificial Neural Network was written in C (<a target="_blank" href="https://github.com/jhibberd/khann/blob/master/src/khann.c">source code</a>) and based on the theory outlined in <a target="_blank" href="http://www.amazon.com/Machine-Learning-Tom-M-Mitchell/dp/0070428077">"Machine Learning" by Tom M. Mitchell</a>. The original aim was to correctly classify all 42,000 training samples from the <a target="_blank" href="http://www.kaggle.com/c/digit-recognizer">Kaggle "Digit Recogniser" competition</a>. The network consists of 2,362 nodes and achieved a 99% successful classification rate on the Kaggle training set.
+            </p>
+
+        </div>
+    </body>
+</html>
+

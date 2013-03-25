@@ -1,0 +1,108 @@
+
+/* GENERAL -------------------------------------------------------------------*/
+
+body {
+    margin: 0;
+    font-family: arial, helvetica, sans-serif;
+    color: #333;
+    background-color: #fbfbfb;
+    font-size: 16px;
+}
+
+.header {
+    background-color: #3b5998;
+    border-bottom: solid 2px #fff;
+    padding: 10px 30px;
+    color: #fff;
+    overflow: auto;
+}
+
+.header img.gravatar {
+    width: 60px;
+    height: 60px;
+    border: solid 2px #fff;
+    float: left;
+}
+
+.header .copy {
+    float: left;
+    margin-left: 15px;
+    line-height: 140%;
+}
+
+.header .copy a {
+    color: #fff;
+}
+
+h1 {
+    font-size: 40px;
+    margin: 0 0 20px 0;
+}
+
+.content {
+    padding: 20px 30px;
+}
+
+.content p {
+    margin: 20px 0 0 0;
+}
+
+/* WIDGET --------------------------------------------------------------------*/
+
+.content .widgetArea {
+    overflow: auto;
+}
+
+.content .widgetArea #canvas {
+    float: left;
+    border: solid 2px #333;
+}
+
+.content .widgetArea .box {
+    width: 500px;
+    float: left;
+    margin-top: 10px;
+    margin-left: 30px;
+    font-size: 22px;
+}
+
+.content .widgetArea .box .eg {
+    color: #888;
+    font-size: 14px;
+    padding-left: 10px;
+}
+
+.content .widgetArea .box img {
+    border: solid 1px #ccc;
+}
+
+.content .widgetArea .box .button {
+    cursor: pointer;
+    margin-top: 20px;
+    -moz-box-shadow: inset 0px 1px 0px 0px #ffffff;
+    -webkit-box-shadow: inset 0px 1px 0px 0px #ffffff;
+    box-shadow: inset 0px 1px 0px 0px #ffffff;
+    background-color: #ededed;
+    -moz-border-radius: 6px;
+    -webkit-border-radius: 6px;
+    border-radius: 6px;
+    border: 1px solid #dcdcdc;
+    display: inline-block;
+    color: #777777;
+    font-family: arial;
+    font-size: 15px;
+    font-weight: bold;
+    padding: 6px 24px;
+    text-decoration: none;
+    text-shadow: 1px 1px 0px #ffffff;
+}
+
+.content .widgetArea .box .button:hover {
+    background-color: #dfdfdf;
+}
+
+.content .widgetArea .box .button:active {
+    position: relative;
+    top: 1px;
+}
+
