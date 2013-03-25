@@ -1,4 +1,5 @@
 import khann
+import os
 import sys
 import tornado.ioloop
 from pymongo import MongoClient
@@ -80,7 +81,7 @@ if __name__ == "__main__":
             (r"/eval/(\w*)/?",  _EvalHandler),
             ],
             debug=True, 
-            static_path="static") 
+            static_path=os.path.join(os.path.dirname(__file__), "static")) 
         application.listen(port=int(sys.argv[1]))
         tornado.ioloop.IOLoop.instance().start()
     finally:
