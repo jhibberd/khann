@@ -18,8 +18,5 @@ int main(int argx, char **argv)
             nid = argv[2];
             validate_network(nid);
             break;
-        /*case 's':
-            time_network();
-            break;*/
     }
 }
