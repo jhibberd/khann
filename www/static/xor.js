@@ -1,5 +1,5 @@
 
-$(document).ready(function() {
+function initWidget() {
 
     var onIVSubmit = function() {
         var sigA, sigB;
@@ -10,10 +10,19 @@ $(document).ready(function() {
 
     var onIVResponse = function(data) {
         var result = data.ov_bin[0];
-        alert(result == 1 ? "ON" : "OFF");
+        var msg = result == 1 ? 
+            "<b>Yes</b> they are exclusively OR." :
+            "<b>No</b> they are not exclusively OR.";
+        $("#result").html(msg);
     };
 
+    var onResetWidget = function() {
+        $("#signalA").prop('checked', false);
+        $("#signalB").prop('checked', false);
+    };
+
+    khann.registerCallbacks(onResetWidget, null);
     $("#ivSubmit").click(onIVSubmit);
 
-});
+}
 

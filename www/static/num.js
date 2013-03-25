@@ -1,7 +1,7 @@
 
 // TODO(jhibberd) Does this still work on an iPad?
 
-$(document).ready(function() {
+function initWidget() {
 
     // General-purpose event handler to determine the mouse position relative 
     // to the canvas element
@@ -86,7 +86,10 @@ $(document).ready(function() {
             9: "nine"
             }[highI.toString()];
     
-        alert(word);
+        $("#result").html(word);
+    };
+
+    var onResetWidget = function() {
         context.clearRect(0, 0, canvas.width, canvas.height);
     };
 
@@ -142,7 +145,8 @@ $(document).ready(function() {
         event.preventDefault();
     },  false); 
 
+    khann.registerCallbacks(onResetWidget, null);
     $("#ivSubmit").click(onIVSubmit);
 
-});
+}
 

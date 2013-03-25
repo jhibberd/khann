@@ -1,19 +1,49 @@
-#import ann
 import os
 import tornado.ioloop
+from pymongo import MongoClient
 from tornado.web import Application, RequestHandler
+
+
+class _ClusterSettings(object):
+    
+    _settings = None
+
+    @classmethod
+    def get_settings(cls, nid):
+        if not cls._settings:
+            cls._settings = {}
+            for doc in MongoClient().khann__system.settings.find():
+                cls._settings[doc["_id"]] = doc
+        return cls._settings[nid]
+
 
 class XORHandler(RequestHandler):
     def get(self):
-        self.render("html/eval/xor.html")
+        self.render(
+            "html/eval/xor.html", 
+            settings=_ClusterSettings.get_settings("xor"))
+
 
 class BinAddHandler(RequestHandler):
     def get(self):
-        self.render("html/eval/binadd.html")
+        self.render(
+            "html/eval/binadd.html",
+            settings=_ClusterSettings.get_settings("binadd"))
+
 
 class NumHandler(RequestHandler):
     def get(self):
-        self.render("html/eval/num.html")
+        self.render(
+            "html/eval/num.html",
+            settings=_ClusterSettings.get_settings("num"))
+
+
+class AlphaNumHandler(RequestHandler):
+    def get(self):
+        self.render(
+            "html/eval/alphanum.html",
+            settings=_ClusterSettings.get_settings("alphanum"))
+
 
 class MainHandler(RequestHandler):
     """Render demo framework."""
@@ -54,6 +84,7 @@ application = Application([
     (r"/xor",       XORHandler),
     (r"/binadd",    BinAddHandler),
     (r"/num",       NumHandler),
+    (r"/alphanum",  AlphaNumHandler),
     (r"/",          MainHandler),
     #(r"/eval", EvalHandler),
 ],

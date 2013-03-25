@@ -27,6 +27,17 @@ class _ClusterMeta(object):
         return cls._meta
 
 
+class _RefreshClusterHandler(RequestHandler):
+
+    def get(self):
+
+        # Load most recent weights files into memory
+        #khann.cluster_destroy()
+        #khann.cluster_init()
+
+        self.write("OK")
+
+
 class _Handler(RequestHandler):
 
     def get(self, nid):
@@ -43,6 +54,23 @@ class _Handler(RequestHandler):
             "ov_real":  ov,
             "ov_bin":   self._bin_OV(ov),
             })
+
+    def post(self, nid):
+        """Store the submitted input and corresponding output vector in the
+        database as an additional training case for a network.
+        """
+        iv = self.get_argument("iv")
+        ov = self.get_argument("ov")
+        self._validate_NID(nid)
+        iv = self._fmt_and_validate_IV(nid, iv)
+        ov = self._fmt_and_validate_OV(nid, ov)
+        coll = MongoClient()["khann_%s" % nid].training
+        coll.save({
+            "iv": iv,
+            "ov": ov,
+            })
+        self.set_header(
+            "Access-Control-Allow-Origin", "http://local.www.khann.org")
 
     @staticmethod
     def _bin_OV(ov):
@@ -64,12 +92,26 @@ class _Handler(RequestHandler):
         if len(iv) != expected_len:
             raise Exception("Input vector length should be %d but is %d" % \
                 (expected_len, len(iv)))
-        return iv 
+        return iv
+
+    @staticmethod
+    def _fmt_and_validate_OV(nid, ov):
+        ov = ov.split(",")
+        try:
+            ov = map(float, ov)
+        except ValueError:
+            raise Exception("Output vector contains non-float values")
+        expected_len = _ClusterMeta.get_topology(nid)[-1]
+        if len(ov) != expected_len:
+            raise Exception("Output vector length should be %d but is %d" % \
+                (expected_len, len(ov)))
+        return ov
 
 
 def _run_server():
     app = Application([
-        (r"/([\w]{2,})/?", _Handler),
+        (r"/refresh/?",     _RefreshClusterHandler),
+        (r"/([\w]{2,})/?",  _Handler),
         ], 
         debug=True)
     app.listen(8000)

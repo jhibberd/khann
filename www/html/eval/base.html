@@ -3,10 +3,37 @@
         <title>Khann</title>
         <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.0/jquery.min.js"></script>
         <script type="text/javascript" src="{{ static_url("base.js") }}"></script>
+        <link rel="stylesheet" type="text/css" href="{{ static_url("base.css") }}">
         {% block import %}{% end %}
     </head>
     <body>
         <h1>Khann</h1>
         {% block content %}{% end %}
+
+        <div id="boxInstruction" class="box">
+            {% block box_instruction %}{% end %}
+        </div>
+
+        <div id="boxClassification" class="box" style="display: none;">
+            {% block box_classification %}{% end %}
+
+            {% if settings["accept_training"] %}
+                Help make this network better by telling us the correct answer
+                <a id="train" class="link">Train</a>
+            {% end %}
+
+            <a id="playAgain" class="link">Play again</a>
+        </div>
+
+        <div id="boxTrain" class="box" style="display: none;">
+            What is the correct answer?
+            {% block box_train %}{% end %}
+            <a id="ovSubmit" class="link">Submit</a>
+        </div>
+
+        <div id="boxTrainThanks" class="box" style="display: none;">
+            Thanks!
+        </div>
+
     </body>
 </html>

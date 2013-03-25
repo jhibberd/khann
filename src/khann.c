@@ -316,6 +316,8 @@ static void train(struct training_set *t, struct network *n)
     double err, *iv;
 
     fprintf(stderr, "Training with training set of %d items\n", t->n);
+    if (t->n == 0)
+        return;
 
     do {
         err = 0, cfd = 0;
@@ -391,6 +393,9 @@ static void test_weights(struct training_set *t, struct network *n)
 {
     int i, c, ti, cfd;
     double o, *iv, x;
+
+    if (t->n == 0)
+        return;
 
     /* Print number of correct classifications */
     cfd = 0;

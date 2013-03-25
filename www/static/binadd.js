@@ -1,5 +1,5 @@
 
-$(document).ready(function() {
+function initWidget() {
 
     var onIVSubmit = function() {
         var numA, numB;
@@ -25,8 +25,13 @@ $(document).ready(function() {
     };
 
     var onIVResponse = function(data) {
-        var result = parseInt(data.ov_bin.join(''), 2);
-        alert(result);
+        var sum = parseInt(data.ov_bin.join(''), 2);
+        $("#sum").html(sum);
+    };
+
+    var onResetWidget = function() {
+        $("#numA").val("0");
+        $("#numB").val("0");
     };
 
     // Dynamically generate number lists
@@ -44,7 +49,8 @@ $(document).ready(function() {
         }));
     });
 
+    khann.registerCallbacks(onResetWidget, null);
     $("#ivSubmit").click(onIVSubmit);
 
-});
+}
 
